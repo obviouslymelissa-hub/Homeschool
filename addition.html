@@ -280,7 +280,7 @@
       <main class="card stage" aria-live="polite">
         <div class="problem-card" id="problemCard">
           <div class="vertical-add" id="verticalAdd" role="group" aria-label="Addition problem">
-            <!-- carries (optional) - note: no editable carry box above the rightmost (ones) column -->
+            <!-- carries (optional) - now has one extra cell on the left to accept overflow carry -->
             <div id="carryRow" class="grid-row" aria-hidden="true"></div>
 
             <!-- addends -->
@@ -289,7 +289,7 @@
 
             <div class="separator" aria-hidden="true"></div>
 
-            <!-- sum row -->
+            <!-- sum row (has one extra leftmost box to accept overflow digit) -->
             <div class="grid-row" id="sumRow" role="group" aria-label="Your answer">
               <!-- digit inputs added by JS -->
             </div>
@@ -333,8 +333,8 @@
   </div>
 
   <script>
-    // Improved alignment + optional carry boxes.
-    // Important: there is no editable carry box above the rightmost (ones) column.
+    // Improved alignment + overflow digit support.
+    // Key change: sum row and carry row now include the extra leftmost column so sums like 6+4 -> 10 can be entered as two digits.
     (function(){
       // DOM refs
       const digitsSelect = document.getElementById('digits');
@@ -367,7 +367,7 @@
       let state = {
         a: null,
         b: null,
-        digits: 3,
+        digits: 3,         // digits in each addend
         willForce: 'either',
         asked: 0,
         correct: 0,
@@ -406,7 +406,7 @@
 
       // render vertical layout using consistent grid-row sizes
       function renderProblem(){
-        const d = state.digits;
+        const d = state.digits;          // number of digits in addends
         const a = state.a;
         const b = state.b;
         carryRow.innerHTML = '';
@@ -414,22 +414,24 @@
         addendRowB.innerHTML = '';
         sumRow.innerHTML = '';
 
-        // carries: we will leave the rightmost spot empty (placeholder)
-        for(let i=0;i<d;i++){
-          if(i === 0){
-            // rightmost (ones) — show a placeholder (no carry box above ones)
+        // carryRow: create d+1 cells so there's a leftmost carry cell (overflow),
+        // and the rightmost (ones) is a placeholder (no carry goes above ones).
+        for(let j=0;j<=d;j++){ // j from 0..d inclusive, total d+1 cells
+          if(j === 0){
+            // rightmost (ones) — placeholder (no carry box above ones)
             const placeholder = document.createElement('div');
             placeholder.className = 'carry-placeholder';
-            placeholder.textContent = ''; // visually empty but keeps alignment
+            placeholder.textContent = '';
             placeholder.setAttribute('aria-hidden', 'true');
             carryRow.appendChild(placeholder);
           } else {
+            // j >= 1 => carry input that represents carry into column j (from column j-1)
             const carryInput = document.createElement('input');
             carryInput.type = 'text';
             carryInput.className = 'carry-input';
             carryInput.maxLength = 2;
-            carryInput.dataset.idx = i;
-            carryInput.setAttribute('aria-label','carry for column '+(i+1));
+            carryInput.dataset.idx = j;
+            carryInput.setAttribute('aria-label','carry for column '+(j+1));
             carryInput.addEventListener('input', e => {
               // keep only digits
               e.target.value = e.target.value.replace(/[^\d]/g, '').slice(0,2);
@@ -439,7 +441,7 @@
         }
         carryRow.style.display = showCarryBoxes.checked ? 'flex' : 'none';
 
-        // addends (A and B)
+        // addends (A and B): each has exactly d visible digit cells (no extra leftmost)
         for(let i=0;i<d;i++){
           const pow = Math.pow(10,i);
           const da = Math.floor(a/pow)%10;
@@ -450,8 +452,8 @@
           addendRowB.appendChild(cellB);
         }
 
-        // sum inputs (right-to-left)
-        for(let i=0;i<d;i++){
+        // sumRow: create d+1 inputs (rightmost is ones at index 0, leftmost index d is overflow digit)
+        for(let i=0;i<=d;i++){
           const input = document.createElement('input');
           input.type='text'; input.inputMode='numeric';
           input.maxLength=3; input.className='digit-input';
@@ -463,11 +465,11 @@
         }
 
         // instruction
-        problemHint.textContent = 'Add the two numbers above. Enter each digit of the sum in the boxes — rightmost box is ones. There is no carry box above the rightmost (ones) column; carries from ones go into the box above the tens column.';
+        problemHint.textContent = 'Add the two numbers above. Enter each digit of the sum in the boxes — rightmost box is ones. If the sum produces an extra digit on the left (e.g., 6+4=10), use the leftmost box to enter that digit. The carry boxes above correspond to carries into the next column (there is no box above the ones column).';
         explainBox.hidden = true;
         blocksArea.hidden = true;
 
-        // focus right-most sum input
+        // focus right-most sum input (ones)
         setTimeout(() => {
           const inputs = sumRow.querySelectorAll('input');
           if(inputs.length) inputs[0].focus();
@@ -497,6 +499,7 @@
 
       function getUserDigits(){
         const inputs = Array.from(sumRow.querySelectorAll('input'));
+        // inputs[0] is ones, inputs[d] is leftmost overflow
         const d = inputs.map(i => i.value.trim()===''?null:parseInt(i.value,10));
         return d;
       }
@@ -505,13 +508,15 @@
         const d = state.digits;
         const total = state.a + state.b;
         const arr=[];
-        for(let i=0;i<d;i++){
+        // produce d+1 digits (ones .. overflow)
+        for(let i=0;i<=d;i++){
           arr.push(Math.floor(total/Math.pow(10,i))%10);
         }
         return arr;
       }
 
-      // compute carries column-by-column (ones-first), returns carries array for each column (value carried to next column)
+      // compute carries column-by-column (ones-first).
+      // returns carries array length d where carries[i] is the carry produced after processing column i (goes into column i+1).
       function computeCarries(){
         const d = state.digits;
         const carries = new Array(d).fill(0);
@@ -522,18 +527,18 @@
           const db = Math.floor(state.b/pow)%10;
           const s = da + db + carry;
           carry = Math.floor(s/10);
-          carries[i] = carry; // carry produced after column i (goes into column i+1)
+          carries[i] = carry;
         }
         return carries;
       }
 
       function checkAnswer(){
-        const user = getUserDigits();
+        const user = getUserDigits();     // length d+1
+        const expected = computeSumArray(); // length d+1
         if(user.some(v=>v===null)){
           flashProblem('Please fill every digit box (use 0 if needed).', false);
           return;
         }
-        const correct = computeSumArray();
         let allGood = true;
         const inputs = Array.from(sumRow.querySelectorAll('input'));
         // clear previous markers
@@ -542,8 +547,8 @@
           i.style.background = 'transparent';
         });
 
-        for(let i=0;i<correct.length;i++){
-          if(user[i] === correct[i]){
+        for(let i=0;i<expected.length;i++){
+          if(user[i] === expected[i]){
             inputs[i].style.background = 'linear-gradient(90deg, rgba(34,211,238,0.06), rgba(124,58,237,0.02))';
             inputs[i].style.border = '1px solid rgba(34,211,238,0.18)';
           } else {
@@ -557,7 +562,7 @@
         askedEl.textContent = state.asked;
 
         const carries = computeCarries();
-        // show carries briefly in the boxes above (note mapping: carry produced by column i appears above column i+1)
+        // show carries briefly in the boxes above (mapping: carry produced by column i appears above column i+1)
         showCarriesBrief(carries);
 
         if(allGood){
@@ -579,14 +584,14 @@
 
       // shows computed carries briefly; mapping: carry produced at index i is shown in carry cell at index i+1
       function showCarriesBrief(carries){
-        const carryCells = Array.from(carryRow.children); // can be placeholders or inputs, row-reverse visual order
+        const carryCells = Array.from(carryRow.children); // length d+1
         if(!carryCells.length) return;
         const autoSet = [];
         for(let j=0;j<carryCells.length;j++){
           const cell = carryCells[j];
           // desired carry to display above this column: carry from previous column (j-1)
-          const fromIndex = j-1;
-          const desired = (fromIndex >= 0 && carries[fromIndex]) ? String(carries[fromIndex]) : '';
+          const fromIndex = j-1; // fromIndex in carries array
+          const desired = (fromIndex >= 0 && fromIndex < carries.length && carries[fromIndex]) ? String(carries[fromIndex]) : '';
           if(cell.tagName === 'INPUT'){
             if(cell.value === '' || cell.value === null){
               cell.dataset.autovalue = desired;
@@ -596,7 +601,7 @@
               autoSet.push(cell);
             } else {
               const parsed = parseInt(cell.value,10) || 0;
-              if(parsed === (fromIndex >= 0 ? carries[fromIndex] : 0)){
+              if(parsed === (fromIndex >= 0 && fromIndex < carries.length ? carries[fromIndex] : 0)){
                 cell.style.border = '1px solid rgba(34,211,238,0.18)';
               } else {
                 cell.style.border = '1px solid rgba(239,68,68,0.18)';
@@ -632,6 +637,7 @@
         const a = state.a, b = state.b, d = state.digits;
         let text = '';
         let carry=0;
+        // explain from most significant down to ones for readability, then note overflow if any.
         for(let i=d-1;i>=0;i--){
           const place = Math.pow(10,i);
           const da = Math.floor(a/place)%10;
@@ -643,6 +649,9 @@
           text += `Column ${i+1} (${placeName}): ${da} + ${db}` + (carry?` + carry ${carry}`:'') + ` = ${s}. Write ${digit} and carry ${newCarry}.\n`;
           carry = newCarry;
         }
+        if(carry){
+          text += `After the leftmost column there is a final carry of ${carry}, so the sum has an extra leftmost digit (${carry}).\n`;
+        }
         explainText.textContent = text;
         explainBox.hidden = false;
         blocksArea.hidden = false;
@@ -652,7 +661,7 @@
         const carryCells = Array.from(carryRow.children);
         for(let j=0;j<carryCells.length;j++){
           const fromIndex = j-1;
-          const desired = (fromIndex >= 0 && carries[fromIndex]) ? String(carries[fromIndex]) : '';
+          const desired = (fromIndex >= 0 && fromIndex < carries.length && carries[fromIndex]) ? String(carries[fromIndex]) : '';
           const cell = carryCells[j];
           if(cell.tagName === 'INPUT'){
             if(cell.value === '' || cell.value === null){
@@ -661,10 +670,10 @@
               cell.style.border = '1px solid rgba(34,211,238,0.18)';
             } else {
               const parsed = parseInt(cell.value,10) || 0;
-              cell.style.border = parsed === (fromIndex >= 0 ? carries[fromIndex] : 0) ? '1px solid rgba(34,211,238,0.18)' : '1px solid rgba(239,68,68,0.18)';
+              cell.style.border = parsed === (fromIndex >= 0 && fromIndex < carries.length ? carries[fromIndex] : 0) ? '1px solid rgba(34,211,238,0.18)' : '1px solid rgba(239,68,68,0.18)';
             }
           } else {
-            cell.textContent = ''; // placeholder for ones
+            cell.textContent = '';
           }
         }
 
