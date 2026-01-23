@@ -115,7 +115,7 @@
       align-items:center;
     }
 
-    .digit-cell, .carry-input, .digit-input {
+    .digit-cell, .carry-input, .digit-input, .carry-placeholder {
       width:44px;
       min-width:44px;
       box-sizing:border-box;
@@ -143,6 +143,16 @@
       border:1px dashed rgba(255,255,255,0.04);
       color:var(--accent);
       height:36px;
+    }
+
+    .carry-placeholder{
+      height:36px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:rgba(255,255,255,0.06);
+      border:1px dashed transparent;
+      background:transparent;
     }
 
     .digit-input{
@@ -270,7 +280,7 @@
       <main class="card stage" aria-live="polite">
         <div class="problem-card" id="problemCard">
           <div class="vertical-add" id="verticalAdd" role="group" aria-label="Addition problem">
-            <!-- carries (optional) -->
+            <!-- carries (optional) - note: no editable carry box above the rightmost (ones) column -->
             <div id="carryRow" class="grid-row" aria-hidden="true"></div>
 
             <!-- addends -->
@@ -324,6 +334,7 @@
 
   <script>
     // Improved alignment + optional carry boxes.
+    // Important: there is no editable carry box above the rightmost (ones) column.
     (function(){
       // DOM refs
       const digitsSelect = document.getElementById('digits');
@@ -403,20 +414,28 @@
         addendRowB.innerHTML = '';
         sumRow.innerHTML = '';
 
-        // carries: inputs so the student can practice writing carries.
-        // checked toggle controls visibility
+        // carries: we will leave the rightmost spot empty (placeholder)
         for(let i=0;i<d;i++){
-          const carryInput = document.createElement('input');
-          carryInput.type = 'text';
-          carryInput.className = 'carry-input';
-          carryInput.maxLength = 2;
-          carryInput.dataset.idx = i;
-          carryInput.setAttribute('aria-label','carry for column '+(i+1));
-          carryInput.addEventListener('input', e => {
-            // keep only digits
-            e.target.value = e.target.value.replace(/[^\d]/g, '').slice(0,2);
-          });
-          carryRow.appendChild(carryInput);
+          if(i === 0){
+            // rightmost (ones) — show a placeholder (no carry box above ones)
+            const placeholder = document.createElement('div');
+            placeholder.className = 'carry-placeholder';
+            placeholder.textContent = ''; // visually empty but keeps alignment
+            placeholder.setAttribute('aria-hidden', 'true');
+            carryRow.appendChild(placeholder);
+          } else {
+            const carryInput = document.createElement('input');
+            carryInput.type = 'text';
+            carryInput.className = 'carry-input';
+            carryInput.maxLength = 2;
+            carryInput.dataset.idx = i;
+            carryInput.setAttribute('aria-label','carry for column '+(i+1));
+            carryInput.addEventListener('input', e => {
+              // keep only digits
+              e.target.value = e.target.value.replace(/[^\d]/g, '').slice(0,2);
+            });
+            carryRow.appendChild(carryInput);
+          }
         }
         carryRow.style.display = showCarryBoxes.checked ? 'flex' : 'none';
 
@@ -443,9 +462,8 @@
           sumRow.appendChild(input);
         }
 
-        // ensure all rows have same number of children and same visual order (row-reverse)
-        // provide instruction
-        problemHint.textContent = 'Add the two numbers above. Enter each digit of the sum in the boxes — rightmost box is ones. If carry boxes are shown, type the carry (1) into the top boxes as you compute.';
+        // instruction
+        problemHint.textContent = 'Add the two numbers above. Enter each digit of the sum in the boxes — rightmost box is ones. There is no carry box above the rightmost (ones) column; carries from ones go into the box above the tens column.';
         explainBox.hidden = true;
         blocksArea.hidden = true;
 
@@ -457,8 +475,8 @@
       }
 
       function enforceDigits(e){
-        // allow a single digit or a two-digit negative (but we clean here)
-        const v = e.target.value.replace(/[^\d\-]/g,'');
+        // allow only digits
+        const v = e.target.value.replace(/[^\d]/g,'');
         e.target.value = v;
       }
 
@@ -504,7 +522,7 @@
           const db = Math.floor(state.b/pow)%10;
           const s = da + db + carry;
           carry = Math.floor(s/10);
-          carries[i] = carry; // carry for next column (0 or 1 or more)
+          carries[i] = carry; // carry produced after column i (goes into column i+1)
         }
         return carries;
       }
@@ -539,7 +557,7 @@
         askedEl.textContent = state.asked;
 
         const carries = computeCarries();
-        // if carry boxes are visible, briefly show correct carries (but don't overwrite student-entered values)
+        // show carries briefly in the boxes above (note mapping: carry produced by column i appears above column i+1)
         showCarriesBrief(carries);
 
         if(allGood){
@@ -559,36 +577,39 @@
         updateProgress();
       }
 
-      // shows computed carries briefly; do not clobber manually entered values
+      // shows computed carries briefly; mapping: carry produced at index i is shown in carry cell at index i+1
       function showCarriesBrief(carries){
-        const carryInputs = Array.from(carryRow.querySelectorAll('.carry-input'));
-        if(!carryInputs.length) return;
-        // mark those we auto-insert; temporary values go into a data attribute so we can remove them later
+        const carryCells = Array.from(carryRow.children); // can be placeholders or inputs, row-reverse visual order
+        if(!carryCells.length) return;
         const autoSet = [];
-        for(let i=0;i<carries.length;i++){
-          const ci = carryInputs[i];
-          const desired = carries[i] ? String(carries[i]) : '';
-          if(ci.value === '' || ci.value === null){
-            ci.dataset.autovalue = desired;
-            ci.value = desired;
-            ci.style.border = '1px solid rgba(34,211,238,0.18)';
-            ci.style.background = 'linear-gradient(90deg, rgba(34,211,238,0.04), transparent)';
-            autoSet.push(ci);
-          } else {
-            // if student already entered something, briefly highlight correct vs incorrect
-            // we won't change their input
-            const parsed = parseInt(ci.value,10) || 0;
-            if(parsed === carries[i]){
-              ci.style.border = '1px solid rgba(34,211,238,0.18)';
+        for(let j=0;j<carryCells.length;j++){
+          const cell = carryCells[j];
+          // desired carry to display above this column: carry from previous column (j-1)
+          const fromIndex = j-1;
+          const desired = (fromIndex >= 0 && carries[fromIndex]) ? String(carries[fromIndex]) : '';
+          if(cell.tagName === 'INPUT'){
+            if(cell.value === '' || cell.value === null){
+              cell.dataset.autovalue = desired;
+              cell.value = desired;
+              cell.style.border = '1px solid rgba(34,211,238,0.18)';
+              cell.style.background = 'linear-gradient(90deg, rgba(34,211,238,0.04), transparent)';
+              autoSet.push(cell);
             } else {
-              ci.style.border = '1px solid rgba(239,68,68,0.18)';
+              const parsed = parseInt(cell.value,10) || 0;
+              if(parsed === (fromIndex >= 0 ? carries[fromIndex] : 0)){
+                cell.style.border = '1px solid rgba(34,211,238,0.18)';
+              } else {
+                cell.style.border = '1px solid rgba(239,68,68,0.18)';
+              }
             }
+          } else {
+            // placeholder - keep empty
+            cell.textContent = '';
           }
         }
-        // clear autovalues after a short delay so student can try again
+        // clear autovalues after short delay
         setTimeout(()=>{
           autoSet.forEach(ci => {
-            // only clear if still matches the autovalue (student hasn't started editing)
             if(ci.dataset.autovalue !== undefined && ci.value === ci.dataset.autovalue){
               ci.value = '';
             }
@@ -626,23 +647,24 @@
         explainBox.hidden = false;
         blocksArea.hidden = false;
 
-        // show visualization and fill carry boxes with correct carries for practice
+        // compute carries and populate carry boxes above appropriate columns
         const carries = computeCarries();
-        // populate carry inputs (do not overwrite if student wrote something)
-        const carryInputs = Array.from(carryRow.querySelectorAll('.carry-input'));
-        for(let i=0;i<carries.length;i++){
-          const ci = carryInputs[i];
-          if(ci){
-            if(ci.value === '' || ci.value === null){
-              // set and mark as autovalue so user sees it
-              ci.value = carries[i] ? String(carries[i]) : '';
-              ci.dataset.autovalue = 'explain';
-              ci.style.border = '1px solid rgba(34,211,238,0.18)';
+        const carryCells = Array.from(carryRow.children);
+        for(let j=0;j<carryCells.length;j++){
+          const fromIndex = j-1;
+          const desired = (fromIndex >= 0 && carries[fromIndex]) ? String(carries[fromIndex]) : '';
+          const cell = carryCells[j];
+          if(cell.tagName === 'INPUT'){
+            if(cell.value === '' || cell.value === null){
+              cell.value = desired;
+              cell.dataset.autovalue = 'explain';
+              cell.style.border = '1px solid rgba(34,211,238,0.18)';
             } else {
-              // highlight correctness
-              const parsed = parseInt(ci.value,10) || 0;
-              ci.style.border = parsed === carries[i] ? '1px solid rgba(34,211,238,0.18)' : '1px solid rgba(239,68,68,0.18)';
+              const parsed = parseInt(cell.value,10) || 0;
+              cell.style.border = parsed === (fromIndex >= 0 ? carries[fromIndex] : 0) ? '1px solid rgba(34,211,238,0.18)' : '1px solid rgba(239,68,68,0.18)';
             }
+          } else {
+            cell.textContent = ''; // placeholder for ones
           }
         }
 
