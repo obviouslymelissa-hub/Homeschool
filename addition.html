@@ -69,9 +69,10 @@
     /* Controls */
     .controls label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
     .controls .row{display:flex;gap:8px;align-items:center;margin-bottom:12px}
-    select,input[type="number"]{
+    select,input[type="number"],input[type="checkbox"]{
       background:var(--glass);border:1px solid rgba(255,255,255,0.04);
       color:inherit;padding:8px;border-radius:8px;font-size:14px;width:100%;
+      box-sizing:border-box;
     }
     .switch{
       display:flex;gap:8px;align-items:center;
@@ -101,21 +102,61 @@
       padding:18px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);
       min-width:260px;
       position:relative;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
     }
 
-    /* vertical layout */
-    .digits{
-      display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-family: "Courier New", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-      font-size:30px;color:#e6eef6;
+    /* unified sizes so everything lines up */
+    .grid-row{
+      display:flex;
+      flex-direction:row-reverse; /* rightmost column is the first child visually (ones) */
+      gap:6px;
+      align-items:center;
     }
-    .carry-row{height:26px;color:var(--accent);font-size:18px}
-    .separator{height:2px;background:linear-gradient(90deg,var(--accent),transparent);margin:10px 0;border-radius:2px}
-    .sum-row{display:flex;gap:6px;align-items:center}
-    .digit-cell{min-width:34px;text-align:center}
+
+    .digit-cell, .carry-input, .digit-input {
+      width:44px;
+      min-width:44px;
+      box-sizing:border-box;
+      text-align:center;
+      border-radius:6px;
+      font-family: "Courier New", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    }
+
+    .digit-cell{
+      padding:8px 6px;
+      font-size:28px;
+      color:#e6eef6;
+      background:transparent;
+      border:1px solid transparent;
+      min-height:44px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .carry-input{
+      padding:6px 6px;
+      font-size:16px;
+      background:rgba(255,255,255,0.02);
+      border:1px dashed rgba(255,255,255,0.04);
+      color:var(--accent);
+      height:36px;
+    }
+
     .digit-input{
-      width:34px;padding:6px;border-radius:6px;background:transparent;border:1px dashed rgba(255,255,255,0.05);
-      color:inherit;font-size:20px;text-align:center;
+      padding:6px 6px;
+      font-size:20px;
+      background:transparent;
+      border:1px dashed rgba(255,255,255,0.05);
+      color:inherit;
+      height:44px;
     }
+
+    .separator{height:2px;background:linear-gradient(90deg,var(--accent),transparent);margin:6px 0;border-radius:2px}
+
+    .sum-row{display:flex;gap:6px;align-items:center}
     .hint{font-size:13px;color:var(--muted);margin-top:8px}
 
     /* Stats */
@@ -175,6 +216,7 @@
             <option value="2">2 digits (e.g., 34 + 17)</option>
             <option value="3" selected>3 digits (e.g., 248 + 167)</option>
             <option value="1">1 digit (practice)</option>
+            <option value="4">4 digits (challenge)</option>
           </select>
         </div>
 
@@ -200,6 +242,11 @@
           <input id="problems" type="number" min="1" max="50" value="10" />
         </div>
 
+        <div class="row">
+          <label style="font-size:13px;color:var(--muted)">Show carry boxes on top</label>
+          <input id="showCarryBoxes" type="checkbox" aria-label="Show carry boxes" checked />
+        </div>
+
         <div class="row" style="margin-top:4px">
           <button id="newBtn" class="btn tiny" title="New problem">New problem</button>
           <button id="checkBtn" class="btn ghost tiny" title="Check answer">Check</button>
@@ -215,7 +262,7 @@
 
           <div style="margin-top:10px">
             <div class="progress" aria-hidden="true" style="margin-bottom:6px"><i id="progBar"></i></div>
-            <div class="hint">Tip: press Enter to submit, use arrow keys to move between digit boxes.</div>
+            <div class="hint">Tip: press Enter to submit, use arrow keys to move between digit boxes. You can type carries in the top boxes to practice.</div>
           </div>
         </div>
       </aside>
@@ -223,18 +270,17 @@
       <main class="card stage" aria-live="polite">
         <div class="problem-card" id="problemCard">
           <div class="vertical-add" id="verticalAdd" role="group" aria-label="Addition problem">
-            <!-- carries -->
-            <div class="digits carry-row" id="carryRow" aria-hidden="true"></div>
+            <!-- carries (optional) -->
+            <div id="carryRow" class="grid-row" aria-hidden="true"></div>
 
             <!-- addends -->
-            <div class="digits" id="addendRows" aria-hidden="true">
-              <!-- added by JS -->
-            </div>
+            <div id="addendRowA" class="grid-row" aria-hidden="true" title="Addend A"></div>
+            <div id="addendRowB" class="grid-row" aria-hidden="true" title="Addend B"></div>
 
             <div class="separator" aria-hidden="true"></div>
 
             <!-- sum row -->
-            <div class="sum-row" id="sumRow" role="group" aria-label="Your answer">
+            <div class="grid-row" id="sumRow" role="group" aria-label="Your answer">
               <!-- digit inputs added by JS -->
             </div>
 
@@ -277,8 +323,7 @@
   </div>
 
   <script>
-    // Basic interactive addition page
-    // Designed to be self-contained and friendly for a tech-interested kid.
+    // Improved alignment + optional carry boxes.
     (function(){
       // DOM refs
       const digitsSelect = document.getElementById('digits');
@@ -289,9 +334,11 @@
       const checkBtn = document.getElementById('checkBtn');
       const explainBtn = document.getElementById('explainBtn');
       const showBlocksBtn = document.getElementById('showBlocksBtn');
+      const showCarryBoxes = document.getElementById('showCarryBoxes');
 
       const carryRow = document.getElementById('carryRow');
-      const addendRows = document.getElementById('addendRows');
+      const addendRowA = document.getElementById('addendRowA');
+      const addendRowB = document.getElementById('addendRowB');
       const sumRow = document.getElementById('sumRow');
       const problemHint = document.getElementById('problemHint');
       const explainBox = document.getElementById('explain');
@@ -321,14 +368,12 @@
       // helpers
       function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
 
-      // ensure at least one regroup if requested
       function makeAddends(digits, force){
         while(true){
           const max = Math.pow(10,digits)-1;
-          const min = Math.pow(10,digits-1);
-          // allow leading-digit smaller values if digits==1
-          const a = randInt(digits===1?0:min, max);
-          const b = randInt(digits===1?0:min, max);
+          const min = digits===1 ? 0 : Math.pow(10,digits-1);
+          const a = randInt(min, max);
+          const b = randInt(min, max);
           const columns = columnSums(a,b,digits);
           const hasRegroup = columns.some(s => s>=10);
           if(force === 'yes' && !hasRegroup) continue;
@@ -348,46 +393,45 @@
         return arr; // ones first
       }
 
-      // render vertical layout
+      // render vertical layout using consistent grid-row sizes
       function renderProblem(){
         const d = state.digits;
         const a = state.a;
         const b = state.b;
         carryRow.innerHTML = '';
-        addendRows.innerHTML = '';
+        addendRowA.innerHTML = '';
+        addendRowB.innerHTML = '';
         sumRow.innerHTML = '';
 
-        // carries (empty placeholders)
-        const carryDiv = document.createElement('div');
-        carryDiv.style.display='flex'; carryDiv.style.gap='6px';
+        // carries: inputs so the student can practice writing carries.
+        // checked toggle controls visibility
         for(let i=0;i<d;i++){
-          const cell = document.createElement('div');
-          cell.className='digit-cell'; cell.style.minWidth='34px';
-          cell.textContent='';
-          carryDiv.appendChild(cell);
+          const carryInput = document.createElement('input');
+          carryInput.type = 'text';
+          carryInput.className = 'carry-input';
+          carryInput.maxLength = 2;
+          carryInput.dataset.idx = i;
+          carryInput.setAttribute('aria-label','carry for column '+(i+1));
+          carryInput.addEventListener('input', e => {
+            // keep only digits
+            e.target.value = e.target.value.replace(/[^\d]/g, '').slice(0,2);
+          });
+          carryRow.appendChild(carryInput);
         }
-        carryRow.appendChild(carryDiv);
+        carryRow.style.display = showCarryBoxes.checked ? 'flex' : 'none';
 
-        // addends (two rows)
-        const rowA = document.createElement('div');
-        rowA.style.display='flex'; rowA.style.flexDirection='row-reverse'; rowA.style.gap='6px'; rowA.style.alignItems='center';
-        const rowB = document.createElement('div');
-        rowB.style.display='flex'; rowB.style.flexDirection='row-reverse'; rowB.style.gap='6px'; rowB.style.alignItems='center';
-
+        // addends (A and B)
         for(let i=0;i<d;i++){
           const pow = Math.pow(10,i);
           const da = Math.floor(a/pow)%10;
           const db = Math.floor(b/pow)%10;
           const cellA = document.createElement('div'); cellA.className='digit-cell'; cellA.textContent=da;
           const cellB = document.createElement('div'); cellB.className='digit-cell'; cellB.textContent=db;
-          rowA.appendChild(cellA); rowB.appendChild(cellB);
+          addendRowA.appendChild(cellA);
+          addendRowB.appendChild(cellB);
         }
-        addendRows.appendChild(rowA);
-        addendRows.appendChild(rowB);
 
-        // sum inputs
-        const sumDiv = document.createElement('div');
-        sumDiv.style.display='flex'; sumDiv.style.flexDirection='row-reverse'; sumDiv.style.gap='6px';
+        // sum inputs (right-to-left)
         for(let i=0;i<d;i++){
           const input = document.createElement('input');
           input.type='text'; input.inputMode='numeric';
@@ -396,15 +440,16 @@
           input.setAttribute('aria-label','digit '+(i+1));
           input.addEventListener('keydown', handleKeyNav);
           input.addEventListener('input', enforceDigits);
-          sumDiv.appendChild(input);
+          sumRow.appendChild(input);
         }
-        sumRow.appendChild(sumDiv);
 
-        problemHint.textContent = 'Add the two numbers above. Enter each digit of the sum in the boxes — rightmost box is ones.';
+        // ensure all rows have same number of children and same visual order (row-reverse)
+        // provide instruction
+        problemHint.textContent = 'Add the two numbers above. Enter each digit of the sum in the boxes — rightmost box is ones. If carry boxes are shown, type the carry (1) into the top boxes as you compute.';
         explainBox.hidden = true;
         blocksArea.hidden = true;
 
-        // focus right-most input
+        // focus right-most sum input
         setTimeout(() => {
           const inputs = sumRow.querySelectorAll('input');
           if(inputs.length) inputs[0].focus();
@@ -412,7 +457,8 @@
       }
 
       function enforceDigits(e){
-        const v = e.target.value.replace(/[^\d\-]/g,''); // allow minus just in case
+        // allow a single digit or a two-digit negative (but we clean here)
+        const v = e.target.value.replace(/[^\d\-]/g,'');
         e.target.value = v;
       }
 
@@ -447,18 +493,36 @@
         return arr;
       }
 
+      // compute carries column-by-column (ones-first), returns carries array for each column (value carried to next column)
+      function computeCarries(){
+        const d = state.digits;
+        const carries = new Array(d).fill(0);
+        let carry = 0;
+        for(let i=0;i<d;i++){
+          const pow = Math.pow(10,i);
+          const da = Math.floor(state.a/pow)%10;
+          const db = Math.floor(state.b/pow)%10;
+          const s = da + db + carry;
+          carry = Math.floor(s/10);
+          carries[i] = carry; // carry for next column (0 or 1 or more)
+        }
+        return carries;
+      }
+
       function checkAnswer(){
         const user = getUserDigits();
         if(user.some(v=>v===null)){
-          // allow incomplete but notify
           flashProblem('Please fill every digit box (use 0 if needed).', false);
           return;
         }
         const correct = computeSumArray();
         let allGood = true;
         const inputs = Array.from(sumRow.querySelectorAll('input'));
-        // clear any previous markers
-        inputs.forEach(i => { i.style.border='1px dashed rgba(255,255,255,0.05)'; });
+        // clear previous markers
+        inputs.forEach(i => {
+          i.style.border='1px dashed rgba(255,255,255,0.05)';
+          i.style.background = 'transparent';
+        });
 
         for(let i=0;i<correct.length;i++){
           if(user[i] === correct[i]){
@@ -474,14 +538,16 @@
         state.asked++;
         askedEl.textContent = state.asked;
 
+        const carries = computeCarries();
+        // if carry boxes are visible, briefly show correct carries (but don't overwrite student-entered values)
+        showCarriesBrief(carries);
+
         if(allGood){
           flashProblem('Correct! Nice work.', true);
           state.correct++;
           state.streak++;
           correctEl.textContent = state.correct;
           streakEl.textContent = state.streak;
-          // animate carry display quickly
-          showCarriesBrief();
           confetti();
         } else {
           flashProblem('Not quite — press "Explain" for a guided step-by-step.', false);
@@ -493,26 +559,44 @@
         updateProgress();
       }
 
-      function showCarriesBrief(){
-        // compute carries like human method: starting from ones, carry floor(sum/10)
-        const d = state.digits;
-        const carries = new Array(d).fill('');
-        let carry = 0;
-        for(let i=0;i<d;i++){
-          const pow = Math.pow(10,i);
-          const da = Math.floor(state.a/pow)%10;
-          const db = Math.floor(state.b/pow)%10;
-          const s = da + db + carry;
-          carry = Math.floor(s/10);
-          carries[i] = carry ? carry : '';
+      // shows computed carries briefly; do not clobber manually entered values
+      function showCarriesBrief(carries){
+        const carryInputs = Array.from(carryRow.querySelectorAll('.carry-input'));
+        if(!carryInputs.length) return;
+        // mark those we auto-insert; temporary values go into a data attribute so we can remove them later
+        const autoSet = [];
+        for(let i=0;i<carries.length;i++){
+          const ci = carryInputs[i];
+          const desired = carries[i] ? String(carries[i]) : '';
+          if(ci.value === '' || ci.value === null){
+            ci.dataset.autovalue = desired;
+            ci.value = desired;
+            ci.style.border = '1px solid rgba(34,211,238,0.18)';
+            ci.style.background = 'linear-gradient(90deg, rgba(34,211,238,0.04), transparent)';
+            autoSet.push(ci);
+          } else {
+            // if student already entered something, briefly highlight correct vs incorrect
+            // we won't change their input
+            const parsed = parseInt(ci.value,10) || 0;
+            if(parsed === carries[i]){
+              ci.style.border = '1px solid rgba(34,211,238,0.18)';
+            } else {
+              ci.style.border = '1px solid rgba(239,68,68,0.18)';
+            }
+          }
         }
-        // render carries into top row (right-to-left)
-        const cells = Array.from(carryRow.querySelectorAll('.digit-cell'));
-        for(let i=0;i<cells.length;i++){
-          cells[i].textContent = carries[i] ? carries[i] : '';
-        }
-        // clear after 1.2s
-        setTimeout(()=>{ cells.forEach(c=>c.textContent=''); }, 1200);
+        // clear autovalues after a short delay so student can try again
+        setTimeout(()=>{
+          autoSet.forEach(ci => {
+            // only clear if still matches the autovalue (student hasn't started editing)
+            if(ci.dataset.autovalue !== undefined && ci.value === ci.dataset.autovalue){
+              ci.value = '';
+            }
+            ci.style.border = '1px dashed rgba(255,255,255,0.04)';
+            ci.style.background = 'rgba(255,255,255,0.02)';
+            delete ci.dataset.autovalue;
+          });
+        }, 1400);
       }
 
       function flashProblem(msg, good){
@@ -525,10 +609,8 @@
 
       function showExplanation(){
         const a = state.a, b = state.b, d = state.digits;
-        const colSums = columnSums(a,b,d);
         let text = '';
         let carry=0;
-        // explain from right to left but show steps top-down
         for(let i=d-1;i>=0;i--){
           const place = Math.pow(10,i);
           const da = Math.floor(a/place)%10;
@@ -536,29 +618,48 @@
           const s = da + db + carry;
           const digit = s % 10;
           const newCarry = Math.floor(s/10);
-          text += `Column ${i+1} (place ${i===0?"ones":i===1?"tens":"hundreds"}): ${da} + ${db}` + (carry?` + carry ${carry}`:'') + ` = ${s}. Write ${digit} and carry ${newCarry}.\n`;
+          const placeName = i===0 ? "ones" : i===1 ? "tens" : i===2 ? "hundreds" : (i+1)+"-place";
+          text += `Column ${i+1} (${placeName}): ${da} + ${db}` + (carry?` + carry ${carry}`:'') + ` = ${s}. Write ${digit} and carry ${newCarry}.\n`;
           carry = newCarry;
         }
         explainText.textContent = text;
         explainBox.hidden = false;
         blocksArea.hidden = false;
 
+        // show visualization and fill carry boxes with correct carries for practice
+        const carries = computeCarries();
+        // populate carry inputs (do not overwrite if student wrote something)
+        const carryInputs = Array.from(carryRow.querySelectorAll('.carry-input'));
+        for(let i=0;i<carries.length;i++){
+          const ci = carryInputs[i];
+          if(ci){
+            if(ci.value === '' || ci.value === null){
+              // set and mark as autovalue so user sees it
+              ci.value = carries[i] ? String(carries[i]) : '';
+              ci.dataset.autovalue = 'explain';
+              ci.style.border = '1px solid rgba(34,211,238,0.18)';
+            } else {
+              // highlight correctness
+              const parsed = parseInt(ci.value,10) || 0;
+              ci.style.border = parsed === carries[i] ? '1px solid rgba(34,211,238,0.18)' : '1px solid rgba(239,68,68,0.18)';
+            }
+          }
+        }
+
         // create block visualization
         blocksColumns.innerHTML = '';
-        // build columns left-to-right (most significant -> ones) visually, but we want rightmost = ones
         for(let i=d-1;i>=0;i--){
           const col = document.createElement('div');
           col.className='column';
-          const placeName = i===0 ? 'Ones' : i===1 ? 'Tens' : 'Hundreds';
+          const placeName = i===0 ? 'Ones' : i===1 ? 'Tens' : i===2 ? 'Hundreds' : (i+1)+'-place';
           const title = document.createElement('div'); title.style.fontSize='12px'; title.style.color='var(--muted)';
           title.textContent = placeName;
           col.appendChild(title);
 
-          // show blocks for a, b
           const pow = Math.pow(10,i);
           const da = Math.floor(a/pow)%10;
           const db = Math.floor(b/pow)%10;
-          // ones/tens blocks for addend A
+
           const groupA = document.createElement('div'); groupA.style.display='flex'; groupA.style.flexDirection='column'; groupA.style.alignItems='center'; groupA.style.gap='4px';
           const labelA = document.createElement('div'); labelA.style.fontSize='12px'; labelA.style.color='var(--muted)'; labelA.textContent='A:';
           groupA.appendChild(labelA);
@@ -569,11 +670,9 @@
           }
           col.appendChild(groupA);
 
-          // spacer
           const sep = document.createElement('div'); sep.style.height='6px';
           col.appendChild(sep);
 
-          // addend B
           const groupB = document.createElement('div'); groupB.style.display='flex'; groupB.style.flexDirection='column'; groupB.style.alignItems='center'; groupB.style.gap='4px';
           const labelB = document.createElement('div'); labelB.style.fontSize='12px'; labelB.style.color='var(--muted)'; labelB.textContent='B:';
           groupB.appendChild(labelB);
@@ -588,7 +687,6 @@
         }
       }
 
-      // simple confetti using falling squares
       function confetti(){
         const count = 18;
         const container = document.createElement('div');
@@ -608,7 +706,6 @@
           el.style.borderRadius = '2px';
           el.style.zIndex = 9999;
           container.appendChild(el);
-          // animate
           const fall = randInt(800,1600);
           el.animate([
             { transform:`translateY(0) rotate(${randInt(0,360)}deg)`, opacity:1 },
@@ -624,7 +721,6 @@
         const pct = Math.min(100, Math.round((done/total)*100));
         progBar.style.width = pct + '%';
         sessionInfo.textContent = `Session: ${done} / ${total} done.`;
-        // if session complete and in challenge or practice, offer summary
         if(done >= total){
           setTimeout(()=>{ alert(`Session complete! Correct ${state.correct} / ${state.asked}.`); }, 300);
         }
@@ -641,7 +737,7 @@
         state.b = pair.b;
         renderProblem();
 
-        // clear stats for new session if starting new session
+        // clear stats for new session
         state.sessionDone = 0;
         state.asked = 0;
         state.correct = 0;
@@ -653,14 +749,17 @@
         sessionInfo.textContent = `Session: 0 / ${state.sessionTotal} done.`;
       }
 
-      // show base-ten blocks toggle
+      // when the carry boxes toggle changes, show/hide row (but keep data in DOM)
+      showCarryBoxes.addEventListener('change', ()=>{
+        carryRow.style.display = showCarryBoxes.checked ? 'flex' : 'none';
+      });
+
       showBlocksBtn.addEventListener('click',()=>{
         explainBox.hidden = false;
         blocksArea.hidden = !blocksArea.hidden;
         if(!blocksArea.hidden) showExplanation();
       });
 
-      // explain button
       explainBtn.addEventListener('click', () => {
         if(state.a===null) return;
         showExplanation();
@@ -679,7 +778,7 @@
       // initialize with a problem
       newProblem();
 
-      // small accessibility: announce number values for screen readers when generated
+      // accessibility announcement
       function announceProblem(){
         const text = `Add ${state.a} and ${state.b}. Rightmost box is ones.`;
         problemHint.textContent = text;
