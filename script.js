@@ -90,6 +90,7 @@ function calculateAnswer(num1, num2, operation) {
         case 'multiplication':
             return num1 * num2;
         case 'division':
+            // Division always returns whole numbers because num1 is always a multiple of num2
             return num1 / num2;
         default:
             return num1 + num2;
@@ -109,8 +110,25 @@ function generateNewProblem() {
     
     // For division, ensure num1 is divisible by num2 for whole number results
     if (operation === 'division') {
+        // Get a smaller multiplier to keep division problems manageable
+        const difficulty = difficultySelect.value;
+        let maxMultiplier;
+        switch(difficulty) {
+            case 'easy':
+                maxMultiplier = 10;
+                break;
+            case 'medium':
+                maxMultiplier = 12;
+                break;
+            case 'hard':
+                maxMultiplier = 15;
+                break;
+            default:
+                maxMultiplier = 12;
+        }
+        const multiplier = Math.floor(Math.random() * maxMultiplier) + 1;
         num2 = getRandomNumber();
-        num1 = num2 * getRandomNumber(); // Make num1 a multiple of num2
+        num1 = num2 * multiplier; // Make num1 a multiple of num2
     }
     
     num1Element.textContent = num1;
