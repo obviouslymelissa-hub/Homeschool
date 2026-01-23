@@ -100,16 +100,10 @@ function calculateAnswer(num1, num2, operation) {
 // Generate new problem
 function generateNewProblem() {
     const operation = operationSelect.value;
-    let num1 = getRandomNumber();
-    let num2 = getRandomNumber();
+    let num1, num2;
     
-    // For subtraction, ensure num1 >= num2 for positive results
-    if (operation === 'subtraction' && num2 > num1) {
-        [num1, num2] = [num2, num1];
-    }
-    
-    // For division, ensure num1 is divisible by num2 for whole number results
     if (operation === 'division') {
+        // For division, generate numbers that ensure whole number results
         // Get a smaller multiplier to keep division problems manageable
         const difficulty = difficultySelect.value;
         let maxMultiplier;
@@ -129,6 +123,15 @@ function generateNewProblem() {
         const multiplier = Math.floor(Math.random() * maxMultiplier) + 1;
         num2 = getRandomNumber();
         num1 = num2 * multiplier; // Make num1 a multiple of num2
+    } else {
+        // For other operations, generate random numbers
+        num1 = getRandomNumber();
+        num2 = getRandomNumber();
+        
+        // For subtraction, ensure num1 >= num2 for positive results
+        if (operation === 'subtraction' && num2 > num1) {
+            [num1, num2] = [num2, num1];
+        }
     }
     
     num1Element.textContent = num1;
@@ -146,7 +149,8 @@ function generateNewProblem() {
 
 // Check answer
 function checkAnswer() {
-    const userAnswer = parseFloat(answerInput.value);
+    // Use parseInt since all problems produce integer results
+    const userAnswer = parseInt(answerInput.value, 10);
     
     if (answerInput.value === '' || isNaN(userAnswer)) {
         feedbackElement.textContent = '⚠️ Please enter a number!';
