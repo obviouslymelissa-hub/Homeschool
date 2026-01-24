@@ -365,6 +365,7 @@
     // New features:
     // - solved problems shown in a box with the solution
     // - when 10 problems have been answered, user can download and print the problems/answers
+    // Changes included: New problem doesn't clear session progress/solved list; blanks in answer boxes are treated as zeros.
     (function(){
       // DOM refs
       const digitsSelect = document.getElementById('digits');
@@ -537,7 +538,11 @@
       function getUserDigits(){
         const inputs = Array.from(sumRow.querySelectorAll('input'));
         // inputs[0] is ones, inputs[d] is leftmost overflow
-        const d = inputs.map(i => i.value.trim()===''?null:parseInt(i.value,10));
+        // Treat blank boxes as 0 so users don't have to type leading zeros
+        const d = inputs.map(i => {
+          const v = i.value.trim();
+          return v === '' ? 0 : parseInt(v,10);
+        });
         return d;
       }
 
@@ -570,12 +575,10 @@
       }
 
       function checkAnswer(){
-        const user = getUserDigits();     // length d+1
+        const user = getUserDigits();     // length d+1 (blanks converted to 0)
         const expected = computeSumArray(); // length d+1
-        if(user.some(v=>v===null)){
-          flashProblem('Please fill every digit box (use 0 if needed).', false);
-          return;
-        }
+        // removed requirement to fill every box; blank is treated as 0 so user doesn't need to type leading zeros
+
         let allGood = true;
         const inputs = Array.from(sumRow.querySelectorAll('input'));
         // clear previous markers
@@ -920,30 +923,24 @@
       function newProblem(){
         state.digits = parseInt(digitsSelect.value,10);
         state.willForce = forceRegroup.value;
-        state.sessionTotal = Math.max(1, parseInt(problemsInput.value,10) || 10);
+        // update sessionTotal if user changed it, otherwise keep current
+        state.sessionTotal = Math.max(1, parseInt(problemsInput.value,10) || state.sessionTotal);
 
         const pair = makeAddends(state.digits, state.willForce);
         state.a = pair.a;
         state.b = pair.b;
         renderProblem();
 
-        // clear stats for new session
-        state.sessionDone = 0;
-        state.asked = 0;
-        state.correct = 0;
-        state.streak = 0;
-        state.solved = [];
-        askedEl.textContent = 0;
-        correctEl.textContent = 0;
-        streakEl.textContent = 0;
-        progBar.style.width = '0%';
-        sessionInfo.textContent = `Session: 0 / ${state.sessionTotal} done.`;
+        // Do NOT clear stats or solved list here. This keeps progress and completed equations.
+        // Update session display and solved UI state
+        sessionInfo.textContent = `Session: ${state.sessionDone} / ${state.sessionTotal} done.`;
+        solvedCard.hidden = state.solved.length === 0;
+        const threshold = 10;
+        downloadBtn.disabled = state.solved.length < threshold;
+        printBtn.disabled = state.solved.length < threshold;
 
-        // hide solved card and disable download/print
-        solvedCard.hidden = true;
-        downloadBtn.disabled = true;
-        printBtn.disabled = true;
-        solvedList.innerHTML = '';
+        // announce the new problem for accessibility
+        announceProblem();
       }
 
       // when the carry boxes toggle changes, show/hide row (but keep data in DOM)
