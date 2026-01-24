@@ -196,6 +196,15 @@
     .correct{border:1px solid rgba(22,163,74,0.18);box-shadow:0 6px 22px rgba(22,163,74,0.06)}
     .wrong{border:1px solid rgba(239,68,68,0.14);box-shadow:0 6px 22px rgba(239,68,68,0.04)}
 
+    /* solved list */
+    .solved-card{margin-top:8px}
+    .solved-list{margin-top:8px;display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;padding:8px;background:rgba(255,255,255,0.01);border-radius:8px;border:1px solid rgba(255,255,255,0.02)}
+    .solved-item{display:flex;justify-content:space-between;gap:12px;padding:8px;border-radius:8px;background:rgba(255,255,255,0.01);align-items:center}
+    .solved-item .right{display:flex;gap:8px;align-items:center}
+    .solved-correct{color:var(--good);font-weight:700}
+    .solved-wrong{color:var(--bad);font-weight:700}
+    .solved-controls{display:flex;gap:8px;margin-top:8px;align-items:center}
+
     /* footer help */
     footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
 
@@ -212,7 +221,7 @@
       <div class="logo" aria-hidden="true">ADD</div>
       <div>
         <h1>Addition with Regrouping — Practice</h1>
-        <p class="lead">A clean, interactive page for learning addition with regrouping — made for a tech-loving homeschool student. Choose settings and try problems, see step-by-step regrouping, or visualize with base-ten blocks.</p>
+        <p class="lead">A clean, interactive page for learning addition with regrouping — made for a tech-loving homeschool student. Choose settings and try problems, see step-by-step regrouping, or[...]
       </div>
     </header>
 
@@ -325,6 +334,25 @@
           </div>
         </div>
 
+        <!-- Solved problems box: displays solved problems with their answers and provides download/print when threshold reached -->
+        <div id="solvedCard" class="card solved-card" hidden>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:700">Solved problems</div>
+            <div style="font-size:13px;color:var(--muted)">Solved in this session</div>
+          </div>
+
+          <div id="solvedList" class="solved-list" aria-live="polite">
+            <!-- items appended by JS -->
+          </div>
+
+          <div class="solved-controls">
+            <div style="font-size:13px;color:var(--muted)">When 10 problems are solved you can download or print the list.</div>
+            <div style="flex:1"></div>
+            <button id="downloadBtn" class="btn tiny" disabled title="Download problems & answers">Download</button>
+            <button id="printBtn" class="btn ghost tiny" disabled title="Print problems & answers">Print</button>
+          </div>
+        </div>
+
         <footer>
           If you want, I can adjust difficulty, add more visuals, or make printable worksheets. Tell me what to change.
         </footer>
@@ -334,7 +362,9 @@
 
   <script>
     // Improved alignment + overflow digit support.
-    // Key change: sum row and carry row now include the extra leftmost column so sums like 6+4 -> 10 can be entered as two digits.
+    // New features:
+    // - solved problems shown in a box with the solution
+    // - when 10 problems have been answered, user can download and print the problems/answers
     (function(){
       // DOM refs
       const digitsSelect = document.getElementById('digits');
@@ -357,6 +387,12 @@
       const blocksArea = document.getElementById('blocksArea');
       const blocksColumns = document.getElementById('blocksColumns');
 
+      // solved UI
+      const solvedCard = document.getElementById('solvedCard');
+      const solvedList = document.getElementById('solvedList');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const printBtn = document.getElementById('printBtn');
+
       // stats
       const askedEl = document.getElementById('asked');
       const correctEl = document.getElementById('correct');
@@ -373,7 +409,8 @@
         correct: 0,
         streak: 0,
         sessionTotal: 10,
-        sessionDone: 0
+        sessionDone: 0,
+        solved: []         // array of solved problems for this session
       };
 
       // helpers
@@ -465,7 +502,7 @@
         }
 
         // instruction
-        problemHint.textContent = 'Add the two numbers above. Enter each digit of the sum in the boxes — rightmost box is ones. If the sum produces an extra digit on the left (e.g., 6+4=10), use the leftmost box to enter that digit. The carry boxes above correspond to carries into the next column (there is no box above the ones column).';
+        problemHint.textContent = 'Add the two numbers above. Enter each digit of the sum in the boxes — rightmost box is ones. If the sum produces an extra digit on the left (e.g., 6+4=10), use the[...]
         explainBox.hidden = true;
         blocksArea.hidden = true;
 
@@ -577,6 +614,16 @@
           state.streak = 0;
           streakEl.textContent = state.streak;
         }
+
+        // record solved problem (whether correct or not)
+        addSolvedProblem({
+          a: state.a,
+          b: state.b,
+          userDigits: user.slice(),       // copy
+          expectedDigits: expected.slice(),
+          correct: allGood,
+          timestamp: new Date().toISOString()
+        });
 
         state.sessionDone++;
         updateProgress();
@@ -757,6 +804,118 @@
         }
       }
 
+      // SOLVED PROBLEMS HANDLING
+      // format digits array (ones-first) into a string number, handles overflow digit
+      function digitsToString(digitsArr){
+        // digitsArr is ones-first: [ones, tens, ..., overflow]
+        // create string most significant first
+        const rev = digitsArr.slice().reverse(); // most significant to least
+        // remove leading null / undefined if any (shouldn't be), and leading zeros
+        // convert each to number then join
+        const s = rev.map(v => (v === null || v === undefined) ? '' : String(v)).join('');
+        // remove leading zeros but keep one zero if all zeros
+        const trimmed = s.replace(/^0+(?=\d)/, '');
+        return trimmed === '' ? '0' : trimmed;
+      }
+
+      function addSolvedProblem(item){
+        // item: {a,b,userDigits,expectedDigits,correct,timestamp}
+        state.solved.push(item);
+        renderSolvedList();
+        // reveal solved card if hidden
+        solvedCard.hidden = false;
+        // if we've reached 10 solved problems, enable download/print
+        if(state.solved.length >= 10){
+          downloadBtn.disabled = false;
+          printBtn.disabled = false;
+        }
+      }
+
+      function renderSolvedList(){
+        solvedList.innerHTML = '';
+        // show most recent first
+        const list = state.solved.slice().reverse();
+        list.forEach((it, idx) => {
+          const div = document.createElement('div');
+          div.className = 'solved-item';
+          const left = document.createElement('div');
+          left.innerHTML = `<div style="font-weight:700"> ${it.a} + ${it.b} = <span style="color:var(--accent)">${digitsToString(it.expectedDigits)}</span></div>
+                            <div style="font-size:12px;color:var(--muted)">Answered: ${digitsToString(it.userDigits)}</div>`;
+          const right = document.createElement('div');
+          right.className = 'right';
+          const status = document.createElement('div');
+          status.textContent = it.correct ? 'Correct' : 'Wrong';
+          status.className = it.correct ? 'solved-correct' : 'solved-wrong';
+          const time = document.createElement('div');
+          time.style.fontSize = '12px'; time.style.color = 'var(--muted)'; time.textContent = new Date(it.timestamp).toLocaleTimeString();
+          right.appendChild(status);
+          right.appendChild(time);
+          div.appendChild(left);
+          div.appendChild(right);
+          solvedList.appendChild(div);
+        });
+      }
+
+      function buildCSV(){
+        const rows = [
+          ['Index','A','B','UserAnswer','Expected','Correct','Timestamp']
+        ];
+        state.solved.forEach((it, i) => {
+          rows.push([
+            String(i+1),
+            String(it.a),
+            String(it.b),
+            digitsToString(it.userDigits),
+            digitsToString(it.expectedDigits),
+            it.correct ? 'yes' : 'no',
+            it.timestamp
+          ]);
+        });
+        // escape and join
+        return rows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
+      }
+
+      function downloadSolved(){
+        if(state.solved.length === 0) return;
+        const csv = buildCSV();
+        const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const now = new Date(); const stamp = now.toISOString().slice(0,19).replace(/[:T]/g,'-');
+        a.download = `addition-session-${stamp}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      function printSolved(){
+        if(state.solved.length === 0) return;
+        const printWindow = window.open('', '_blank', 'width=700,height=900,scrollbars=yes');
+        if(!printWindow) {
+          alert('Unable to open print window (popup blocked).');
+          return;
+        }
+        const html = [];
+        html.push('<!doctype html><html><head><meta charset="utf-8"><title>Addition session</title>');
+        html.push('<style>body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:20px}h1{font-size:20px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #ddd;text-align:left}th{background:#f5f5f5}</style>');
+        html.push('</head><body>');
+        html.push('<h1>Addition problems — session</h1>');
+        html.push(`<p>Generated: ${new Date().toLocaleString()}</p>`);
+        html.push('<table><thead><tr><th>#</th><th>A</th><th>B</th><th>Your answer</th><th>Expected</th><th>Correct</th></tr></thead><tbody>');
+        state.solved.forEach((it, i) => {
+          html.push(`<tr><td>${i+1}</td><td>${it.a}</td><td>${it.b}</td><td>${digitsToString(it.userDigits)}</td><td>${digitsToString(it.expectedDigits)}</td><td>${it.correct ? 'Yes' : 'No'}</td></tr>`);
+        });
+        html.push('</tbody></table>');
+        html.push('</body></html>');
+        printWindow.document.open();
+        printWindow.document.write(html.join(''));
+        printWindow.document.close();
+        // wait until content loads enough
+        setTimeout(()=>{ printWindow.focus(); printWindow.print(); }, 350);
+      }
+
       // generate a new problem
       function newProblem(){
         state.digits = parseInt(digitsSelect.value,10);
@@ -773,11 +932,18 @@
         state.asked = 0;
         state.correct = 0;
         state.streak = 0;
+        state.solved = [];
         askedEl.textContent = 0;
         correctEl.textContent = 0;
         streakEl.textContent = 0;
         progBar.style.width = '0%';
         sessionInfo.textContent = `Session: 0 / ${state.sessionTotal} done.`;
+
+        // hide solved card and disable download/print
+        solvedCard.hidden = true;
+        downloadBtn.disabled = true;
+        printBtn.disabled = true;
+        solvedList.innerHTML = '';
       }
 
       // when the carry boxes toggle changes, show/hide row (but keep data in DOM)
@@ -798,6 +964,9 @@
 
       newBtn.addEventListener('click', newProblem);
       checkBtn.addEventListener('click', checkAnswer);
+
+      downloadBtn.addEventListener('click', downloadSolved);
+      printBtn.addEventListener('click', printSolved);
 
       // keyboard shortcuts
       document.addEventListener('keydown', (e)=>{
@@ -821,7 +990,9 @@
         state,
         newProblem,
         checkAnswer,
-        showExplanation
+        showExplanation,
+        downloadSolved,
+        printSolved
       };
 
     })();
