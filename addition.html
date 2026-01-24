@@ -439,12 +439,19 @@
         } else {
           const carryInput = document.createElement('input');
           carryInput.type = 'text';
+          carryInput.inputMode = 'numeric';
+          carryInput.pattern = '[0-9]*';
           carryInput.className = 'carry-input';
-          carryInput.maxLength = 2;
+          carryInput.maxLength = 1; // limit to one digit
           carryInput.dataset.idx = j;
           carryInput.setAttribute('aria-label','carry for column '+(j+1));
           carryInput.addEventListener('input', e => {
-            e.target.value = e.target.value.replace(/[^\d]/g, '').slice(0,2);
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0,1);
+          });
+          carryInput.addEventListener('paste', e => {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            carryInput.value = (text.match(/\d/) || [''])[0];
           });
           carryRow.appendChild(carryInput);
         }
@@ -462,15 +469,25 @@
         addendRowB.appendChild(cellB);
       }
 
-      // Sum row inputs (d+1 to allow overflow)
+      // Sum row inputs (d+1 to allow overflow) — limit to a single digit
       for(let i=0;i<=d;i++){
         const input = document.createElement('input');
-        input.type='text'; input.inputMode='numeric';
-        input.maxLength=3; input.className='digit-input';
+        input.type='text';
+        input.inputMode='numeric';
+        input.pattern='[0-9]*';
+        input.maxLength=1; // limit to one digit
+        input.className='digit-input';
         input.dataset.idx = i;
         input.setAttribute('aria-label','digit '+(i+1));
         input.addEventListener('keydown', handleKeyNav);
-        input.addEventListener('input', e => { e.target.value = e.target.value.replace(/[^\d]/g,''); });
+        input.addEventListener('input', e => {
+          e.target.value = e.target.value.replace(/\D/g,'').slice(0,1);
+        });
+        input.addEventListener('paste', e => {
+          e.preventDefault();
+          const text = (e.clipboardData || window.clipboardData).getData('text');
+          input.value = (text.match(/\d/) || [''])[0];
+        });
         sumRow.appendChild(input);
       }
 
@@ -771,7 +788,7 @@
         const mini = document.createElement('div');
         mini.className = 'vertical-add mini';
 
-        // Carry row (typed-only) — FIX: add carry cells first, placeholder last (aligns under row-reverse)
+        // Carry row (typed-only) — add carry cells first, placeholder last (aligns under row-reverse)
         const carryRowMini = document.createElement('div');
         carryRowMini.className = 'grid-row';
         for(let j=1;j<=it.digits;j++){
