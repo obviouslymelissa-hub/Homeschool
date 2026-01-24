@@ -198,12 +198,41 @@
 
     /* solved list */
     .solved-card{margin-top:8px}
-    .solved-list{margin-top:8px;display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;padding:8px;background:rgba(255,255,255,0.01);border-radius:8px;border:1px solid rgba(255,255,255,0.02)}
+    .solved-list{margin-top:8px;display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;padding:8px;background:rgba(255,255,255,0.01);border-radius:8px;border:1px solid rgba(255,255,[...]
     .solved-item{display:flex;justify-content:space-between;gap:12px;padding:8px;border-radius:8px;background:rgba(255,255,255,0.01);align-items:center}
     .solved-item .right{display:flex;gap:8px;align-items:center}
     .solved-correct{color:var(--good);font-weight:700}
     .solved-wrong{color:var(--bad);font-weight:700}
     .solved-controls{display:flex;gap:8px;margin-top:8px;align-items:center}
+
+    /* MINI vertical layout for solved items */
+    .carry-cell{
+      padding:6px 6px;
+      font-size:16px;
+      background:rgba(255,255,255,0.02);
+      border:1px dashed rgba(255,255,255,0.04);
+      color:var(--accent);
+      height:36px;
+      display:flex;align-items:center;justify-content:center;
+      border-radius:6px;
+      width:44px;min-width:44px;
+      box-sizing:border-box;
+      font-family: "Courier New", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+      text-align:center;
+    }
+    .vertical-add.mini{
+      padding:12px;
+      gap:6px;
+      min-width:auto;
+    }
+    .vertical-add.mini .digit-cell,
+    .vertical-add.mini .carry-cell,
+    .vertical-add.mini .carry-placeholder,
+    .vertical-add.mini .digit-input{
+      width:32px;min-width:32px;min-height:32px;height:32px;font-size:18px;
+    }
+    .vertical-add.mini .carry-cell{font-size:14px;height:28px}
+    .vertical-add.mini .separator{margin:4px 0}
 
     /* footer help */
     footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
@@ -221,7 +250,7 @@
       <div class="logo" aria-hidden="true">ADD</div>
       <div>
         <h1>Addition with Regrouping — Practice</h1>
-        <p class="lead">A clean, interactive page for learning addition with regrouping — made for a tech-loving homeschool student. Choose settings and try problems, see step-by-step regrouping, or printable worksheets.</p>
+        <p class="lead">A clean, interactive page for learning addition with regrouping — made for a tech-loving homeschool student. Choose settings and try problems, see step-by-step regrouping, or[...]</p>
       </div>
     </header>
 
@@ -299,9 +328,7 @@
             <div class="separator" aria-hidden="true"></div>
 
             <!-- sum row (has one extra leftmost box to accept overflow digit) -->
-            <div class="grid-row" id="sumRow" role="group" aria-label="Your answer">
-              <!-- digit inputs added by JS -->
-            </div>
+            <div class="grid-row" id="sumRow" role="group" aria-label="Your answer"></div>
 
             <div class="hint" id="problemHint">Generate a new problem to begin.</div>
           </div>
@@ -322,9 +349,7 @@
 
               <div id="blocksArea" style="margin-top:10px" hidden>
                 <div style="font-size:13px;color:var(--muted)">Columns (right = ones)</div>
-                <div class="blocks" id="blocksColumns">
-                  <!-- base-ten columns inserted by JS -->
-                </div>
+                <div class="blocks" id="blocksColumns"></div>
               </div>
             </div>
 
@@ -334,21 +359,19 @@
           </div>
         </div>
 
-        <!-- Solved problems box: displays solved problems with their answers and provides download/print when threshold reached -->
+        <!-- Solved problems box -->
         <div id="solvedCard" class="card solved-card" hidden>
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div style="font-weight:700">Solved problems</div>
             <div style="font-size:13px;color:var(--muted)">Solved in this session</div>
           </div>
 
-          <div id="solvedList" class="solved-list" aria-live="polite">
-            <!-- items appended by JS -->
-          </div>
+          <div id="solvedList" class="solved-list" aria-live="polite"></div>
 
           <div class="solved-controls">
             <div style="font-size:13px;color:var(--muted)">When 10 problems are solved you can download or print the list.</div>
             <div style="flex:1"></div>
-            <button id="downloadBtn" class="btn tiny" disabled title="Download problems & answers">Download</button>
+            <button id="downloadBtn" class="btn tiny" disabled title="Download problems & answers as PDF">Download PDF</button>
             <button id="printBtn" class="btn ghost tiny" disabled title="Print problems & answers">Print</button>
           </div>
         </div>
@@ -361,16 +384,11 @@
   </div>
 
   <script>
-    // Improved alignment + overflow digit support.
-    // New features:
-    // - solved problems shown in a box with the solution
-    // - when 10 problems have been answered, user can download and print the problems/answers
-    // Changes included: New problem doesn't clear session progress/solved list; blanks in answer boxes are treated as zeros.
+    // Hide carry feedback unless Explain is opened; ignore Explain auto-fills when saving.
     (function(){
       // DOM refs
       const digitsSelect = document.getElementById('digits');
       const forceRegroup = document.getElementById('forceRegroup');
-      const modeSelect = document.getElementById('mode');
       const problemsInput = document.getElementById('problems');
       const newBtn = document.getElementById('newBtn');
       const checkBtn = document.getElementById('checkBtn');
@@ -388,13 +406,11 @@
       const blocksArea = document.getElementById('blocksArea');
       const blocksColumns = document.getElementById('blocksColumns');
 
-      // solved UI
       const solvedCard = document.getElementById('solvedCard');
       const solvedList = document.getElementById('solvedList');
       const downloadBtn = document.getElementById('downloadBtn');
       const printBtn = document.getElementById('printBtn');
 
-      // stats
       const askedEl = document.getElementById('asked');
       const correctEl = document.getElementById('correct');
       const streakEl = document.getElementById('streak');
@@ -404,66 +420,62 @@
       let state = {
         a: null,
         b: null,
-        digits: 3,         // digits in each addend
+        digits: 3,
         willForce: 'either',
-        asked: 0,
+        asked: 0,          // unique problems generated
         correct: 0,
         streak: 0,
-        sessionTotal: 10,
-        sessionDone: 0,
-        solved: []         // array of solved problems for this session
+        sessionTotal: 10,  // target completed problems per session
+        sessionDone: 0,    // finalized problems count
+        solved: [],        // finalized problems list
+        current: null      // current problem tracker
       };
 
-      // helpers
       function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
-
       function makeAddends(digits, force){
         while(true){
           const max = Math.pow(10,digits)-1;
           const min = digits===1 ? 0 : Math.pow(10,digits-1);
           const a = randInt(min, max);
           const b = randInt(min, max);
-          const columns = columnSums(a,b,digits);
-          const hasRegroup = columns.some(s => s>=10);
+          const hasRegroup = (() => {
+            for(let i=0;i<digits;i++){
+              const pow=Math.pow(10,i);
+              const da = Math.floor(a/pow)%10;
+              const db = Math.floor(b/pow)%10;
+              if(da+db>=10) return true;
+            }
+            return false;
+          })();
           if(force === 'yes' && !hasRegroup) continue;
           if(force === 'no' && hasRegroup) continue;
           return {a,b};
         }
       }
-
-      function columnSums(a,b,digits){
+      function computeSumArrayFor(a,b,d){
+        const total = a + b;
         const arr=[];
-        for(let i=0;i<digits;i++){
-          const pow=Math.pow(10,i);
-          const da = Math.floor(a/pow)%10;
-          const db = Math.floor(b/pow)%10;
-          arr.push(da+db);
+        for(let i=0;i<=d;i++){
+          arr.push(Math.floor(total/Math.pow(10,i))%10);
         }
-        return arr; // ones first
+        return arr;
       }
 
-      // render vertical layout using consistent grid-row sizes
       function renderProblem(){
-        const d = state.digits;          // number of digits in addends
-        const a = state.a;
-        const b = state.b;
+        const d = state.digits, a = state.a, b = state.b;
         carryRow.innerHTML = '';
         addendRowA.innerHTML = '';
         addendRowB.innerHTML = '';
         sumRow.innerHTML = '';
 
-        // carryRow: create d+1 cells so there's a leftmost carry cell (overflow),
-        // and the rightmost (ones) is a placeholder (no carry goes above ones).
-        for(let j=0;j<=d;j++){ // j from 0..d inclusive, total d+1 cells
+        for(let j=0;j<=d;j++){
           if(j === 0){
-            // rightmost (ones) — placeholder (no carry box above ones)
             const placeholder = document.createElement('div');
             placeholder.className = 'carry-placeholder';
             placeholder.textContent = '';
             placeholder.setAttribute('aria-hidden', 'true');
             carryRow.appendChild(placeholder);
           } else {
-            // j >= 1 => carry input that represents carry into column j (from column j-1)
             const carryInput = document.createElement('input');
             carryInput.type = 'text';
             carryInput.className = 'carry-input';
@@ -471,7 +483,6 @@
             carryInput.dataset.idx = j;
             carryInput.setAttribute('aria-label','carry for column '+(j+1));
             carryInput.addEventListener('input', e => {
-              // keep only digits
               e.target.value = e.target.value.replace(/[^\d]/g, '').slice(0,2);
             });
             carryRow.appendChild(carryInput);
@@ -479,7 +490,6 @@
         }
         carryRow.style.display = showCarryBoxes.checked ? 'flex' : 'none';
 
-        // addends (A and B): each has exactly d visible digit cells (no extra leftmost)
         for(let i=0;i<d;i++){
           const pow = Math.pow(10,i);
           const da = Math.floor(a/pow)%10;
@@ -490,7 +500,6 @@
           addendRowB.appendChild(cellB);
         }
 
-        // sumRow: create d+1 inputs (rightmost is ones at index 0, leftmost index d is overflow digit)
         for(let i=0;i<=d;i++){
           const input = document.createElement('input');
           input.type='text'; input.inputMode='numeric';
@@ -498,32 +507,24 @@
           input.dataset.idx = i;
           input.setAttribute('aria-label','digit '+(i+1));
           input.addEventListener('keydown', handleKeyNav);
-          input.addEventListener('input', enforceDigits);
+          input.addEventListener('input', e => { e.target.value = e.target.value.replace(/[^\d]/g,''); });
           sumRow.appendChild(input);
         }
 
-        // instruction
-        problemHint.textContent = 'Add the two numbers above. Enter each digit of the sum in the boxes — rightmost box is ones. If the sum produces an extra digit on the left (e.g., 6+4=10), use the leftmost box to enter it.';
+        problemHint.textContent = `Add ${state.a} and ${state.b}. Rightmost box is ones.`;
         explainBox.hidden = true;
         blocksArea.hidden = true;
 
-        // focus right-most sum input (ones)
         setTimeout(() => {
           const inputs = sumRow.querySelectorAll('input');
           if(inputs.length) inputs[0].focus();
         }, 50);
       }
 
-      function enforceDigits(e){
-        // allow only digits
-        const v = e.target.value.replace(/[^\d]/g,'');
-        e.target.value = v;
-      }
-
       function handleKeyNav(e){
         const idx = Number(e.target.dataset.idx);
         const inputs = Array.from(sumRow.querySelectorAll('input'));
-        if(e.key === 'ArrowLeft'){ // move to next (more significant)
+        if(e.key === 'ArrowLeft'){
           e.preventDefault();
           if(idx+1 < inputs.length) inputs[idx+1].focus();
         } else if(e.key === 'ArrowRight'){
@@ -535,53 +536,35 @@
         }
       }
 
-      function getUserDigits(){
+      function getUserDigits(){ // numeric for checking
         const inputs = Array.from(sumRow.querySelectorAll('input'));
-        // inputs[0] is ones, inputs[d] is leftmost overflow
-        // Treat blank boxes as 0 so users don't have to type leading zeros
-        const d = inputs.map(i => {
+        return inputs.map(i => {
           const v = i.value.trim();
           return v === '' ? 0 : parseInt(v,10);
         });
-        return d;
       }
-
-      function computeSumArray(){
-        const d = state.digits;
-        const total = state.a + state.b;
-        const arr=[];
-        // produce d+1 digits (ones .. overflow)
-        for(let i=0;i<=d;i++){
-          arr.push(Math.floor(total/Math.pow(10,i))%10);
-        }
-        return arr;
+      function getUserDigitsRaw(){ // strings exactly as typed
+        const inputs = Array.from(sumRow.querySelectorAll('input'));
+        return inputs.map(i => i.value);
       }
-
-      // compute carries column-by-column (ones-first).
-      // returns carries array length d where carries[i] is the carry produced after processing column i (goes into column i+1).
-      function computeCarries(){
-        const d = state.digits;
-        const carries = new Array(d).fill(0);
-        let carry = 0;
-        for(let i=0;i<d;i++){
-          const pow = Math.pow(10,i);
-          const da = Math.floor(state.a/pow)%10;
-          const db = Math.floor(state.b/pow)%10;
-          const s = da + db + carry;
-          carry = Math.floor(s/10);
-          carries[i] = carry;
-        }
-        return carries;
+      function getCarryInputsSnapshot(){
+        const cells = Array.from(carryRow.children);
+        // Ignore auto-filled carries from Explain (they set data-autovalue)
+        return cells.map(cell => {
+          if(cell.tagName === 'INPUT'){
+            return cell.dataset.autovalue ? '' : cell.value;
+          }
+          return '';
+        });
       }
 
       function checkAnswer(){
-        const user = getUserDigits();     // length d+1 (blanks converted to 0)
-        const expected = computeSumArray(); // length d+1
-        // removed requirement to fill every box; blank is treated as 0 so user doesn't need to type leading zeros
+        const user = getUserDigits();
+        const userRaw = getUserDigitsRaw();
+        const expected = computeSumArrayFor(state.a, state.b, state.digits);
 
         let allGood = true;
         const inputs = Array.from(sumRow.querySelectorAll('input'));
-        // clear previous markers
         inputs.forEach(i => {
           i.style.border='1px dashed rgba(255,255,255,0.05)';
           i.style.background = 'transparent';
@@ -598,12 +581,7 @@
           }
         }
 
-        state.asked++;
-        askedEl.textContent = state.asked;
-
-        const carries = computeCarries();
-        // show carries briefly in the boxes above (mapping: carry produced by column i appears above column i+1)
-        showCarriesBrief(carries);
+        // No brief carry feedback here anymore (hidden unless Explain is opened).
 
         if(allGood){
           flashProblem('Correct! Nice work.', true);
@@ -618,61 +596,27 @@
           streakEl.textContent = state.streak;
         }
 
-        // record solved problem (whether correct or not)
-        addSolvedProblem({
-          a: state.a,
-          b: state.b,
-          userDigits: user.slice(),       // copy
-          expectedDigits: expected.slice(),
+        // Attempt tracking
+        if(!state.current){
+          state.current = {
+            a: state.a, b: state.b, digits: state.digits,
+            expectedDigits: expected.slice(),
+            attempts: 0,
+            finalized: false,
+            startTime: new Date().toISOString()
+          };
+        }
+        state.current.attempts++;
+        state.current.lastAttempt = {
+          userDigitsRaw: userRaw.slice(),
+          carryInputs: getCarryInputsSnapshot().slice(),
           correct: allGood,
           timestamp: new Date().toISOString()
-        });
+        };
 
-        state.sessionDone++;
-        updateProgress();
-      }
-
-      // shows computed carries briefly; mapping: carry produced at index i is shown in carry cell at index i+1
-      function showCarriesBrief(carries){
-        const carryCells = Array.from(carryRow.children); // length d+1
-        if(!carryCells.length) return;
-        const autoSet = [];
-        for(let j=0;j<carryCells.length;j++){
-          const cell = carryCells[j];
-          // desired carry to display above this column: carry from previous column (j-1)
-          const fromIndex = j-1; // fromIndex in carries array
-          const desired = (fromIndex >= 0 && fromIndex < carries.length && carries[fromIndex]) ? String(carries[fromIndex]) : '';
-          if(cell.tagName === 'INPUT'){
-            if(cell.value === '' || cell.value === null){
-              cell.dataset.autovalue = desired;
-              cell.value = desired;
-              cell.style.border = '1px solid rgba(34,211,238,0.18)';
-              cell.style.background = 'linear-gradient(90deg, rgba(34,211,238,0.04), transparent)';
-              autoSet.push(cell);
-            } else {
-              const parsed = parseInt(cell.value,10) || 0;
-              if(parsed === (fromIndex >= 0 && fromIndex < carries.length ? carries[fromIndex] : 0)){
-                cell.style.border = '1px solid rgba(34,211,238,0.18)';
-              } else {
-                cell.style.border = '1px solid rgba(239,68,68,0.18)';
-              }
-            }
-          } else {
-            // placeholder - keep empty
-            cell.textContent = '';
-          }
+        if(allGood && !state.current.finalized){
+          finalizeCurrentProblem(true);
         }
-        // clear autovalues after short delay
-        setTimeout(()=>{
-          autoSet.forEach(ci => {
-            if(ci.dataset.autovalue !== undefined && ci.value === ci.dataset.autovalue){
-              ci.value = '';
-            }
-            ci.style.border = '1px dashed rgba(255,255,255,0.04)';
-            ci.style.background = 'rgba(255,255,255,0.02)';
-            delete ci.dataset.autovalue;
-          });
-        }, 1400);
       }
 
       function flashProblem(msg, good){
@@ -687,7 +631,6 @@
         const a = state.a, b = state.b, d = state.digits;
         let text = '';
         let carry=0;
-        // explain from most significant down to ones for readability, then note overflow if any.
         for(let i=d-1;i>=0;i--){
           const place = Math.pow(10,i);
           const da = Math.floor(a/place)%10;
@@ -706,8 +649,21 @@
         explainBox.hidden = false;
         blocksArea.hidden = false;
 
-        // compute carries and populate carry boxes above appropriate columns
-        const carries = computeCarries();
+        // Populate carry boxes for Explain view only; mark as auto so we ignore when saving
+        const carries = (() => {
+          const d = state.digits;
+          const arr = new Array(d).fill(0);
+          let c = 0;
+          for(let i=0;i<d;i++){
+            const pow = Math.pow(10,i);
+            const da = Math.floor(state.a/pow)%10;
+            const db = Math.floor(state.b/pow)%10;
+            const s = da + db + c;
+            c = Math.floor(s/10);
+            arr[i] = c;
+          }
+          return arr;
+        })();
         const carryCells = Array.from(carryRow.children);
         for(let j=0;j<carryCells.length;j++){
           const fromIndex = j-1;
@@ -722,12 +678,10 @@
               const parsed = parseInt(cell.value,10) || 0;
               cell.style.border = parsed === (fromIndex >= 0 && fromIndex < carries.length ? carries[fromIndex] : 0) ? '1px solid rgba(34,211,238,0.18)' : '1px solid rgba(239,68,68,0.18)';
             }
-          } else {
-            cell.textContent = '';
           }
         }
 
-        // create block visualization
+        // base-ten visualization (unchanged)
         blocksColumns.innerHTML = '';
         for(let i=d-1;i>=0;i--){
           const col = document.createElement('div');
@@ -738,8 +692,8 @@
           col.appendChild(title);
 
           const pow = Math.pow(10,i);
-          const da = Math.floor(a/pow)%10;
-          const db = Math.floor(b/pow)%10;
+          const da = Math.floor(state.a/pow)%10;
+          const db = Math.floor(state.b/pow)%10;
 
           const groupA = document.createElement('div'); groupA.style.display='flex'; groupA.style.flexDirection='column'; groupA.style.alignItems='center'; groupA.style.gap='4px';
           const labelA = document.createElement('div'); labelA.style.fontSize='12px'; labelA.style.color='var(--muted)'; labelA.textContent='A:';
@@ -803,47 +757,107 @@
         progBar.style.width = pct + '%';
         sessionInfo.textContent = `Session: ${done} / ${total} done.`;
         if(done >= total){
-          setTimeout(()=>{ alert(`Session complete! Correct ${state.correct} / ${state.asked}.`); }, 300);
+          setTimeout(()=>{ alert(`Session complete! Problems asked: ${state.asked}. Correct: ${state.correct}.`); }, 300);
         }
       }
 
-      // SOLVED PROBLEMS HANDLING
-      // format digits array (ones-first) into a string number, handles overflow digit
-      function digitsToString(digitsArr){
-        // digitsArr is ones-first: [ones, tens, ..., overflow]
-        // create string most significant first
-        const rev = digitsArr.slice().reverse(); // most significant to least
-        // remove leading null / undefined if any (shouldn't be), and leading zeros
-        // convert each to number then join
-        const s = rev.map(v => (v === null || v === undefined) ? '' : String(v)).join('');
-        // remove leading zeros but keep one zero if all zeros
-        const trimmed = s.replace(/^0+(?=\d)/, '');
-        return trimmed === '' ? '0' : trimmed;
-      }
+      function finalizeCurrentProblem(wasCorrect){
+        if(!state.current || state.current.finalized) return;
+        const it = state.current;
+        const d = it.digits;
+        const expectedDigits = it.expectedDigits || computeSumArrayFor(it.a, it.b, d);
 
-      function addSolvedProblem(item){
-        // item: {a,b,userDigits,expectedDigits,correct,timestamp}
-        state.solved.push(item);
+        const finalCarryInputs = it.lastAttempt ? it.lastAttempt.carryInputs.slice() : Array(d+1).fill('');
+        const finalUserDigitsRaw = it.lastAttempt ? it.lastAttempt.userDigitsRaw.slice() : Array(d+1).fill('');
+
+        state.solved.push({
+          a: it.a,
+          b: it.b,
+          digits: d,
+          expectedDigits: expectedDigits.slice(), // internal
+          finalCarryInputs,
+          finalUserDigitsRaw,
+          correct: !!wasCorrect,
+          attempts: it.attempts,
+          timestamp: new Date().toISOString()
+        });
+
+        it.finalized = true;
+        state.sessionDone++;
+        updateProgress();
         renderSolvedList();
-        // reveal solved card if hidden
+
         solvedCard.hidden = false;
-        // if we've reached 10 solved problems, enable download/print
-        if(state.solved.length >= 10){
-          downloadBtn.disabled = false;
-          printBtn.disabled = false;
-        }
+        const threshold = 10;
+        downloadBtn.disabled = state.solved.length < threshold;
+        printBtn.disabled = state.solved.length < threshold;
       }
 
       function renderSolvedList(){
         solvedList.innerHTML = '';
-        // show most recent first
         const list = state.solved.slice().reverse();
-        list.forEach((it, idx) => {
+        list.forEach((it) => {
           const div = document.createElement('div');
           div.className = 'solved-item';
+
           const left = document.createElement('div');
-          left.innerHTML = `<div style="font-weight:700"> ${it.a} + ${it.b} = <span style="color:var(--accent)">${digitsToString(it.expectedDigits)}</span></div>
-                            <div style="font-size:12px;color:var(--muted)">Answered: ${digitsToString(it.userDigits)}</div>`;
+          const mini = document.createElement('div');
+          mini.className = 'vertical-add mini';
+
+          // Carry row (typed-only)
+          const carryRowMini = document.createElement('div');
+          carryRowMini.className = 'grid-row';
+          for(let j=0;j<=it.digits;j++){
+            if(j===0){
+              const ph = document.createElement('div');
+              ph.className = 'carry-placeholder';
+              carryRowMini.appendChild(ph);
+            } else {
+              const cell = document.createElement('div');
+              cell.className = 'carry-cell';
+              cell.textContent = (it.finalCarryInputs && typeof it.finalCarryInputs[j] !== 'undefined') ? it.finalCarryInputs[j] : '';
+              carryRowMini.appendChild(cell);
+            }
+          }
+          mini.appendChild(carryRowMini);
+
+          // Addends rows
+          const rowA = document.createElement('div'); rowA.className = 'grid-row';
+          const rowB = document.createElement('div'); rowB.className = 'grid-row';
+          for(let i=0;i<it.digits;i++){
+            const da = Math.floor(it.a/Math.pow(10,i))%10;
+            const db = Math.floor(it.b/Math.pow(10,i))%10;
+            const cellA = document.createElement('div'); cellA.className='digit-cell'; cellA.textContent=da;
+            const cellB = document.createElement('div'); cellB.className='digit-cell'; cellB.textContent=db;
+            rowA.appendChild(cellA); rowB.appendChild(cellB);
+          }
+          mini.appendChild(rowA);
+          mini.appendChild(rowB);
+
+          const sep = document.createElement('div'); sep.className = 'separator';
+          mini.appendChild(sep);
+
+          // Sum row (typed-only)
+          const sumMini = document.createElement('div'); sumMini.className = 'grid-row';
+          for(let i=0;i<=it.digits;i++){
+            const cell = document.createElement('div'); cell.className='digit-cell';
+            cell.textContent = (it.finalUserDigitsRaw && typeof it.finalUserDigitsRaw[i] !== 'undefined') ? it.finalUserDigitsRaw[i] : '';
+            sumMini.appendChild(cell);
+          }
+          mini.appendChild(sumMini);
+
+          // Meta: show problem and attempts only (no expected answer)
+          const meta1 = document.createElement('div');
+          meta1.style.fontSize = '12px'; meta1.style.color = 'var(--muted)';
+          meta1.textContent = `${it.a} + ${it.b}`;
+          const meta2 = document.createElement('div');
+          meta2.style.fontSize = '12px'; meta2.style.color = 'var(--muted)';
+          meta2.textContent = `Attempts: ${it.attempts}`;
+          mini.appendChild(meta1);
+          mini.appendChild(meta2);
+
+          left.appendChild(mini);
+
           const right = document.createElement('div');
           right.className = 'right';
           const status = document.createElement('div');
@@ -853,44 +867,103 @@
           time.style.fontSize = '12px'; time.style.color = 'var(--muted)'; time.textContent = new Date(it.timestamp).toLocaleTimeString();
           right.appendChild(status);
           right.appendChild(time);
+
           div.appendChild(left);
           div.appendChild(right);
           solvedList.appendChild(div);
         });
       }
 
-      function buildCSV(){
-        const rows = [
-          ['Index','A','B','UserAnswer','Expected','Correct','Timestamp']
-        ];
-        state.solved.forEach((it, i) => {
-          rows.push([
-            String(i+1),
-            String(it.a),
-            String(it.b),
-            digitsToString(it.userDigits),
-            digitsToString(it.expectedDigits),
-            it.correct ? 'yes' : 'no',
-            it.timestamp
-          ]);
-        });
-        // escape and join
-        return rows.map(r => r.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
-      }
+      function downloadSolvedPDF(){
+        if(state.solved.length === 0){ alert('No solved problems yet.'); return; }
 
-      function downloadSolved(){
-        if(state.solved.length === 0) return;
-        const csv = buildCSV();
-        const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const now = new Date(); const stamp = now.toISOString().slice(0,19).replace(/[:T]/g,'-');
-        a.download = `addition-session-${stamp}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        const printWindow = window.open('', '_blank', 'width=800,height=1000,scrollbars=yes');
+        if(!printWindow) {
+          alert('Unable to open print window (popup blocked).');
+          return;
+        }
+        const doc = printWindow.document;
+        const style = `
+          body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:20px}
+          h1{font-size:20px;margin-bottom:8px}
+          p{margin:0 0 12px}
+          .solv{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:10px}
+          .status{font-weight:700}
+          .status.correct{color:#16a34a}
+          .status.wrong{color:#ef4444}
+          .vertical-add{background:#f7fafc;padding:12px;border-radius:8px;border:1px solid #e5e7eb;display:flex;flex-direction:column;gap:6px;min-width:auto}
+          .grid-row{display:flex;flex-direction:row-reverse;gap:6px;align-items:center}
+          .digit-cell,.carry-cell,.carry-placeholder{
+            width:32px;min-width:32px;height:32px;min-height:32px;
+            box-sizing:border-box;text-align:center;border-radius:6px;
+            font-family:Courier New,ui-monospace,monospace;font-size:18px;
+            display:flex;align-items:center;justify-content:center;
+          }
+          .carry-cell{border:1px dashed #cbd5e1;color:#0ea5e9;background:#f0f9ff}
+          .carry-placeholder{border:1px dashed transparent}
+          .separator{height:2px;background:linear-gradient(90deg,#22d3ee,transparent);border-radius:2px;margin:4px 0}
+          .meta{font-size:12px;color:#64748b}
+          @page{margin:20mm}
+        `;
+        doc.open();
+        doc.write('<!doctype html><html><head><meta charset="utf-8"><title>Solved Addition — PDF</title>');
+        doc.write('<style>'+style+'</style></head><body>');
+        doc.write('<h1>Solved addition problems</h1>');
+        doc.write('<p>Generated: '+ new Date().toLocaleString() +'</p>');
+
+        state.solved.forEach((it) => {
+          let carryHTML = '<div class="grid-row">';
+          for(let j=0;j<=it.digits;j++){
+            if(j===0){
+              carryHTML += '<div class="carry-placeholder"></div>';
+            } else {
+              const val = (it.finalCarryInputs && typeof it.finalCarryInputs[j] !== 'undefined') ? it.finalCarryInputs[j] : '';
+              carryHTML += `<div class="carry-cell">${val}</div>`;
+            }
+          }
+          carryHTML += '</div>';
+
+          let rowAHTML = '<div class="grid-row">';
+          let rowBHTML = '<div class="grid-row">';
+          for(let i=0;i<it.digits;i++){
+            const da = Math.floor(it.a/Math.pow(10,i))%10;
+            const db = Math.floor(it.b/Math.pow(10,i))%10;
+            rowAHTML += `<div class="digit-cell">${da}</div>`;
+            rowBHTML += `<div class="digit-cell">${db}</div>`;
+          }
+          rowAHTML += '</div>'; rowBHTML += '</div>';
+
+          let sumHTML = '<div class="grid-row">';
+          for(let i=0;i<=it.digits;i++){
+            const val = (it.finalUserDigitsRaw && typeof it.finalUserDigitsRaw[i] !== 'undefined') ? it.finalUserDigitsRaw[i] : '';
+            sumHTML += `<div class="digit-cell">${val}</div>`;
+          }
+          sumHTML += '</div>';
+
+          doc.write(
+            `<div class="solv">
+              <div style="flex:1">
+                <div class="vertical-add">
+                  ${carryHTML}
+                  ${rowAHTML}
+                  ${rowBHTML}
+                  <div class="separator"></div>
+                  ${sumHTML}
+                  <div class="meta">${it.a} + ${it.b}</div>
+                  <div class="meta">Attempts: ${it.attempts}</div>
+                </div>
+              </div>
+              <div>
+                <div class="status ${it.correct?'correct':'wrong'}">${it.correct?'Correct':'Wrong'}</div>
+                <div class="meta">${new Date(it.timestamp).toLocaleString()}</div>
+              </div>
+            </div>`
+          );
+        });
+
+        doc.write('</body></html>');
+        doc.close();
+        setTimeout(()=>{ printWindow.focus(); printWindow.print(); }, 350);
       }
 
       function printSolved(){
@@ -902,48 +975,62 @@
         }
         const html = [];
         html.push('<!doctype html><html><head><meta charset="utf-8"><title>Addition session</title>');
-        html.push('<style>body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:20px}h1{font-size:20px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #ddd;text-align:left}th{background:#f5f5f5}</style>');
+        html.push('<style>body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:20px}h1{font-size:20px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #ddd;text-a[...]');
         html.push('</head><body>');
         html.push('<h1>Addition problems — session</h1>');
         html.push(`<p>Generated: ${new Date().toLocaleString()}</p>`);
-        html.push('<table><thead><tr><th>#</th><th>A</th><th>B</th><th>Your answer</th><th>Expected</th><th>Correct</th></tr></thead><tbody>');
+        html.push('<table><thead><tr><th>#</th><th>A</th><th>B</th><th>Attempts</th><th>Correct</th></tr></thead><tbody>');
         state.solved.forEach((it, i) => {
-          html.push(`<tr><td>${i+1}</td><td>${it.a}</td><td>${it.b}</td><td>${digitsToString(it.userDigits)}</td><td>${digitsToString(it.expectedDigits)}</td><td>${it.correct ? 'Yes' : 'No'}</td></tr>`);
+          html.push(`<tr><td>${i+1}</td><td>${it.a}</td><td>${it.b}</td><td>${it.attempts}</td><td>${it.correct ? 'Yes' : 'No'}</td></tr>[...]`);
         });
         html.push('</tbody></table>');
         html.push('</body></html>');
         printWindow.document.open();
         printWindow.document.write(html.join(''));
         printWindow.document.close();
-        // wait until content loads enough
         setTimeout(()=>{ printWindow.focus(); printWindow.print(); }, 350);
       }
 
-      // generate a new problem
       function newProblem(){
+        // finalize current if still in progress (counts as wrong)
+        if(state.current && !state.current.finalized){
+          finalizeCurrentProblem(false);
+        }
+
         state.digits = parseInt(digitsSelect.value,10);
         state.willForce = forceRegroup.value;
-        // update sessionTotal if user changed it, otherwise keep current
         state.sessionTotal = Math.max(1, parseInt(problemsInput.value,10) || state.sessionTotal);
 
         const pair = makeAddends(state.digits, state.willForce);
         state.a = pair.a;
         state.b = pair.b;
+
+        // new unique problem => increment Asked
+        state.asked++;
+        askedEl.textContent = state.asked;
+
+        state.current = {
+          a: state.a,
+          b: state.b,
+          digits: state.digits,
+          expectedDigits: computeSumArrayFor(state.a, state.b, state.digits), // internal only
+          attempts: 0,
+          finalized: false,
+          startTime: new Date().toISOString(),
+          lastAttempt: null
+        };
+
         renderProblem();
 
-        // Do NOT clear stats or solved list here. This keeps progress and completed equations.
-        // Update session display and solved UI state
         sessionInfo.textContent = `Session: ${state.sessionDone} / ${state.sessionTotal} done.`;
         solvedCard.hidden = state.solved.length === 0;
         const threshold = 10;
         downloadBtn.disabled = state.solved.length < threshold;
         printBtn.disabled = state.solved.length < threshold;
 
-        // announce the new problem for accessibility
-        announceProblem();
+        problemHint.textContent = `Add ${state.a} and ${state.b}. Rightmost box is ones.`;
       }
 
-      // when the carry boxes toggle changes, show/hide row (but keep data in DOM)
       showCarryBoxes.addEventListener('change', ()=>{
         carryRow.style.display = showCarryBoxes.checked ? 'flex' : 'none';
       });
@@ -962,33 +1049,25 @@
       newBtn.addEventListener('click', newProblem);
       checkBtn.addEventListener('click', checkAnswer);
 
-      downloadBtn.addEventListener('click', downloadSolved);
+      downloadBtn.addEventListener('click', downloadSolvedPDF);
       printBtn.addEventListener('click', printSolved);
 
-      // keyboard shortcuts
       document.addEventListener('keydown', (e)=>{
         if(e.key === 'n' && (e.ctrlKey || e.metaKey)){
           e.preventDefault(); newProblem();
         }
       });
 
-      // initialize with a problem
+      // initialize with the first problem (counts toward Asked)
       newProblem();
 
-      // accessibility announcement
-      function announceProblem(){
-        const text = `Add ${state.a} and ${state.b}. Rightmost box is ones.`;
-        problemHint.textContent = text;
-      }
-      announceProblem();
-
-      // expose a few functions for debugging in console
+      // expose for debugging
       window._additionTool = {
         state,
         newProblem,
         checkAnswer,
         showExplanation,
-        downloadSolved,
+        downloadSolvedPDF,
         printSolved
       };
 
