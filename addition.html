@@ -143,19 +143,6 @@
     .step-list{ margin:8px 0 0; padding-left:18px }
     .step-list li{ margin:4px 0 }
 
-    .blocks{
-      display:flex;gap:8px;align-items:flex-end;margin-top:10px;
-      flex-wrap: wrap; /* prevent overlap */
-    }
-    #blocksArea{ overflow-x: auto }
-
-    .column{
-      min-width:60px;height:120px;background:rgba(255,255,255,0.01);padding:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);
-      display:flex;flex-direction:column;align-items:center;justify-content:flex-end; gap:6px;
-    }
-    .block{ width:28px;height:16px;background:linear-gradient(90deg,#ffd27c,#ffb86b);border-radius:4px;border:1px solid rgba(0,0,0,0.12); }
-    .block.ten{ width:56px;height:16px;background:linear-gradient(90deg,#8be3ff,#22d3ee); }
-
     /* feedback */
     .correct{border:1px solid rgba(22,163,74,0.18);box-shadow:0 6px 22px rgba(22,163,74,0.06)}
     .wrong{border:1px solid rgba(239,68,68,0.14);box-shadow:0 6px 22px rgba(239,68,68,0.04)}
@@ -295,18 +282,10 @@
                 <div style="font-size:12px;color:var(--muted)">Current mode</div>
                 <div id="modeLabel" style="font-weight:700">Practice</div>
               </div>
-              <div>
-                <button id="showBlocksBtn" class="btn tiny" title="Show base-ten visualization">Show base-ten</button>
-              </div>
             </div>
 
             <div id="explain" class="explain" hidden>
               <div id="explainText">Explanation will appear here.</div>
-
-              <div id="blocksArea" style="margin-top:10px" hidden>
-                <div style="font-size:13px;color:var(--muted)">Columns (right = ones)</div>
-                <div class="blocks" id="blocksColumns"></div>
-              </div>
             </div>
 
             <div id="gameInfo" style="margin-top:12px;color:var(--muted);font-size:13px">
@@ -350,7 +329,6 @@
     const newBtn = document.getElementById('newBtn');
     const checkBtn = document.getElementById('checkBtn');
     const explainBtn = document.getElementById('explainBtn');
-    const showBlocksBtn = document.getElementById('showBlocksBtn');
     const showCarryBoxes = document.getElementById('showCarryBoxes');
 
     const carryRow = document.getElementById('carryRow');
@@ -361,8 +339,6 @@
 
     const explainBox = document.getElementById('explain');
     const explainText = document.getElementById('explainText');
-    const blocksArea = document.getElementById('blocksArea');
-    const blocksColumns = document.getElementById('blocksColumns');
 
     const solvedCard = document.getElementById('solvedCard');
     const solvedList = document.getElementById('solvedList');
@@ -493,7 +469,6 @@
 
       problemHint.textContent = `Add ${state.a} and ${state.b}. Rightmost box is ones.`;
       explainBox.hidden = true;
-      blocksArea.hidden = true;
 
       setTimeout(() => {
         const inputs = sumRow.querySelectorAll('input');
@@ -619,11 +594,11 @@
         const digit = sum % 10;
         const newCarry = Math.floor(sum/10);
         const placeName = i===0 ? "ones" : i===1 ? "tens" : i===2 ? "hundreds" : `${i+1}-place`;
-        steps.push(`Add the ${placeName}: ${da} + ${db}` + (carry?` + carry ${carry}`:'') + ` = ${sum}. Write ${digit}` + (newCarry?` and carry ${newCarry}.`:`.`));
+        steps.push(`Add the ${placeName}: ${da} + ${db}` + (carry?` + carry ${carry}`:'') + (newCarry?` and remember to carry ${newCarry}.`:`.`));
         carry = newCarry;
       }
       if(carry){
-        steps.push(`After the leftmost column, carry ${carry} becomes an extra leftmost digit.`);
+        steps.push(`The carry ${carry} becomes an extra leftmost digit.`);
       }
 
       // Render as an ordered list
@@ -632,7 +607,6 @@
         `</ol>`;
 
       explainBox.hidden = false;
-      blocksArea.hidden = false;
 
       // Populate carry boxes (auto-marked)
       const carries = (() => {
@@ -663,46 +637,6 @@
             cell.style.border = parsed === (fromIndex >= 0 && fromIndex < carries.length ? carries[fromIndex] : 0) ? '1px solid rgba(34,211,238,0.18)' : '1px solid rgba(239,68,68,0.18)';
           }
         }
-      }
-
-      // Base-ten visualization (wraps to avoid overlap)
-      blocksColumns.innerHTML = '';
-      for(let i=d-1;i>=0;i--){
-        const col = document.createElement('div');
-        col.className='column';
-        const placeName = i===0 ? 'Ones' : i===1 ? 'Tens' : i===2 ? 'Hundreds' : (i+1)+'-place';
-        const title = document.createElement('div'); title.style.fontSize='12px'; title.style.color='var(--muted)';
-        title.textContent = placeName;
-        col.appendChild(title);
-
-        const pow = Math.pow(10,i);
-        const da = Math.floor(state.a/pow)%10;
-        const db = Math.floor(state.b/pow)%10;
-
-        const groupA = document.createElement('div'); groupA.style.display='flex'; groupA.style.flexDirection='column'; groupA.style.alignItems='center'; groupA.style.gap='4px';
-        const labelA = document.createElement('div'); labelA.style.fontSize='12px'; labelA.style.color='var(--muted)'; labelA.textContent='A:';
-        groupA.appendChild(labelA);
-        for(let k=0;k<da;k++){
-          const block = document.createElement('div');
-          block.className = i===0 ? 'block' : 'block ten';
-          groupA.appendChild(block);
-        }
-        col.appendChild(groupA);
-
-        const sep = document.createElement('div'); sep.style.height='6px';
-        col.appendChild(sep);
-
-        const groupB = document.createElement('div'); groupB.style.display='flex'; groupB.style.flexDirection='column'; groupB.style.alignItems='center'; groupB.style.gap='4px';
-        const labelB = document.createElement('div'); labelB.style.fontSize='12px'; labelB.style.color='var(--muted)'; labelB.textContent='B:';
-        groupB.appendChild(labelB);
-        for(let k=0;k<db;k++){
-          const block = document.createElement('div');
-          block.className = i===0 ? 'block' : 'block ten';
-          groupB.appendChild(block);
-        }
-        col.appendChild(groupB);
-
-        blocksColumns.appendChild(col);
       }
     }
 
@@ -998,9 +932,6 @@
     newBtn.addEventListener('click', newProblem);
     checkBtn.addEventListener('click', checkAnswer);
     explainBtn.addEventListener('click', showExplanation);
-    showBlocksBtn.addEventListener('click', () => {
-      blocksArea.hidden = !blocksArea.hidden;
-    });
     showCarryBoxes.addEventListener('change', () => {
       carryRow.style.display = showCarryBoxes.checked ? 'flex' : 'none';
     });
