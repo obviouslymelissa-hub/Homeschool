@@ -329,20 +329,30 @@
       }
     }
 
+    // Fisher-Yates shuffle algorithm for proper randomization
+    function shuffleArray(array) {
+      const result = [...array];
+      for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      return result;
+    }
+
     // Generate random word list
     function generateWords() {
       const difficulty = difficultySelect.value;
       const bank = wordBanks[difficulty];
       
       // Pick 5 random unique words
-      const shuffled = [...bank].sort(() => Math.random() - 0.5);
+      const shuffled = shuffleArray(bank);
       const selected = shuffled.slice(0, 5);
       
       // Store correct order
       state.correctOrder = [...selected].sort();
       
       // Shuffle for display
-      state.currentWords = [...selected].sort(() => Math.random() - 0.5);
+      state.currentWords = shuffleArray(selected);
       
       renderWords();
       feedback.classList.remove('show', 'correct', 'wrong');
@@ -411,8 +421,8 @@
       }
 
       if (draggedElement !== this) {
-        const draggedIndex = parseInt(draggedElement.dataset.index);
-        const targetIndex = parseInt(this.dataset.index);
+        const draggedIndex = parseInt(draggedElement.dataset.index, 10);
+        const targetIndex = parseInt(this.dataset.index, 10);
         
         // Swap words in array
         const temp = state.currentWords[draggedIndex];
