@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Addition with Regrouping — Practice</title>
-  <meta name="description" content="Clean interactive practice for addition with regrouping — made for a tech-loving homeschool student." />
+  <title>Addition with Regrouping</title>
+  <meta name="description" content="Interactive practice for addition with regrouping." />
 
   <style>
     :root{
@@ -232,8 +232,8 @@
     <header>
       <div class="logo" aria-hidden="true">ADD</div>
       <div>
-        <h1>Addition with Regrouping — Practice</h1>
-        <p class="lead">A clean, interactive page for learning addition with regrouping — made for a tech-loving homeschool student. Choose settings and try problems, see step-by-step regrouping, or[...]</p>
+        <h1>Addition with Regrouping</h1>
+        <p class="lead">Interactive page for learning addition with regrouping.</p>
       </div>
     </header>
 
@@ -246,15 +246,15 @@
           <label for="digits" style="flex:0 0 160px">Digits per addend</label>
           <select id="digits" title="Select number of digits" style="flex:1">
             <!-- only 3 and 4 allowed for normal practice -->
-            <option value="3" selected>3 digits (e.g., 248 + 167)</option>
-            <option value="4">4 digits (thousands)</option>
+            <option value="3" selected>3 digits</option>
+            <option value="4">4 digits</option>
           </select>
         </div>
 
         <div class="row" style="width:100%">
           <label style="flex:0 0 160px">Mastery challenge</label>
           <div style="flex:1;color:var(--muted);font-size:13px;padding:8px;border-radius:6px;background:var(--glass)">
-            Ready for a quick check? Press "Start Challenge" to try one 5‑digit regroup problem with a 45 second timer. Pass to show mastery.
+            Press "Start Challenge" to try one 5‑digit regroup problem with a 45 second timer. Pass to show mastery and be done with addition lessons.
           </div>
           <button id="startChallengeBtn" class="btn tiny" title="Start the 45s mastery challenge" style="margin-left:8px">Start Challenge</button>
         </div>
@@ -286,8 +286,7 @@
         <!-- Ten-frame helper -->
         <div id="tenFrameWrap" style="margin-top:6px">
           <h4 style="margin:6px 0 8px;font-size:14px">Ten-frame helper</h4>
-          <div id="tenFrames" class="tenframes">Generate a problem to see ten-frames.</div>
-          <div class="hint" style="margin-top:8px;font-size:13px">Click a column to see two ten-frames stacked: the top completes a ten, the bottom shows leftovers. This visual scaffold doesn't show the final answer.</div>
+          <div id="tenFrames" class="tenframes"></div>
         </div>
       </aside>
 
@@ -318,7 +317,7 @@
             </div>
 
             <div id="explain" class="explain" hidden>
-              <div id="explainText">Explanation will appear here.</div>
+              <div id="explainText">Explaination</div>
             </div>
 
             <!-- Buttons under current problem -->
@@ -348,14 +347,11 @@
           <div id="solvedList" class="solved-list" aria-live="polite"></div>
 
           <div class="solved-controls">
-            <div style="font-size:13px;color:var(--muted)">When 10 problems are solved you can download the list.</div>
+            <div style="font-size:13px;color:var(--muted)">When 10 problems are solved you can download your work.</div>
             <div style="flex:1"></div>
           </div>
         </div>
 
-        <footer>
-          If you want, I can adjust difficulty, add more visuals, or make printable worksheets. Tell me what to change.
-        </footer>
       </main>
     </div>
   </div>
