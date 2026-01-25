@@ -180,10 +180,29 @@
     /* footer help */
     footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
 
+    /* Ten-frame helper (two frames per column, stacked vertically) */
+    .tenframes { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+    .tenframe { display:flex; gap:12px; align-items:flex-start; cursor:pointer; user-select:none; padding:6px; border-radius:8px; }
+    .tenframe-label { width:64px; font-size:13px; color:var(--muted); flex: 0 0 64px; }
+    .tf-pair { display:flex; flex-direction:column; gap:8px; align-items:flex-start; }
+    .tf { display:flex; flex-direction:column; gap:6px; background:rgba(255,255,255,0.01); padding:6px; border-radius:6px; }
+    .tf-row { display:flex; gap:6px; }
+    .tf-box {
+      width:26px; height:26px; border-radius:6px;
+      border:1px solid rgba(255,255,255,0.04);
+      background:transparent; display:flex; align-items:center; justify-content:center;
+    }
+    .dot { width:12px; height:12px; border-radius:50%; opacity:0; transform:translateY(-6px); transition:all 260ms ease; }
+    .dot.filled { opacity:1; transform:translateY(0); }
+    .dot.a { background: linear-gradient(90deg,#ffd27c,#ffb86b); } /* addend A color */
+    .dot.b { background: linear-gradient(90deg,#22d3ee,#7c3aed); } /* addend B color */
+    .tf-caption { margin-top:6px; font-size:13px; color:var(--muted); }
+    .tenframe:focus { outline:2px solid rgba(34,211,238,0.12); border-radius:8px; }
     /* responsive */
     @media (max-width:860px){
       .layout{grid-template-columns:1fr; }
       .vertical-add{min-width:100%}
+      .tenframe-label { width:56px; flex: 0 0 56px; font-size:12px; }
     }
   </style>
 </head>
@@ -193,7 +212,7 @@
       <div class="logo" aria-hidden="true">ADD</div>
       <div>
         <h1>Addition with Regrouping — Practice</h1>
-        <p class="lead">A clean, interactive page for learning addition with regrouping — made for a tech-loving homeschool student. Choose settings and try problems, see step-by-step regrouping, or print solved problems.</p>
+        <p class="lead">A clean, interactive page for learning addition with regrouping — made for a tech-loving homeschool student. Choose settings and try problems, see step-by-step regrouping, or[...]</p>
       </div>
     </header>
 
@@ -259,6 +278,13 @@
             <div class="progress" aria-hidden="true" style="margin-bottom:6px"><i id="progBar"></i></div>
             <div class="hint">Tip: press Enter to submit, use arrow keys to move between digit boxes. You can type carries in the top boxes to practice.</div>
           </div>
+        </div>
+
+        <!-- Ten-frame helper added here -->
+        <div style="margin-top:12px" id="tenFrameWrap">
+          <h4 style="margin:6px 0 8px">Ten-frame helper</h4>
+          <div id="tenFrames" class="tenframes">Generate a problem to see ten-frames.</div>
+          <div class="hint" style="margin-top:8px;font-size:13px">Click a column to see two ten-frames stacked: the first shows how to make 10, the second shows the leftover counters. This visual scaffold doesn't show the final answer.</div>
         </div>
       </aside>
 
@@ -575,6 +601,9 @@
         const inputs = sumRow.querySelectorAll('input');
         if(inputs.length) inputs[0].focus();
       }, 50);
+
+      // render ten-frames for the current problem (new helper)
+      renderTenFrameHelper();
     }
 
     function handleKeyNav(e){
@@ -991,7 +1020,7 @@
       }
       const html = [];
       html.push('<!doctype html><html><head><meta charset="utf-8"><title>Addition session</title>');
-      html.push('<style>body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:20px}h1{font-size:20px;margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #ddd;text-align:center}thead{background:#f7fafc}</style>');
+      html.push('<style>body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:20px}h1{font-size:20px;margin:0 0 12px}table{width:100%;border-collapse:collapse}th,td{padding:8px;border:1px solid #e5e7eb}th{background:#f8fafc;text-align:left}</style>');
       html.push('</head><body>');
       html.push('<h1>Addition problems — session</h1>');
       html.push(`<p>Generated: ${new Date().toLocaleString()}</p>`);
@@ -1004,59 +1033,242 @@
       printWindow.document.open();
       printWindow.document.write(html.join(''));
       printWindow.document.close();
-      setTimeout(()=>{ printWindow.focus(); printWindow.print(); }, 350);
+      setTimeout(()=>{ printWindow.focus(); printWindow.print(); }, 300);
     }
 
-    function newProblem(){
-      // finalize current if still in progress (counts as wrong)
-      if(state.current && !state.current.finalized){
-        finalizeCurrentProblem(false);
+    //
+    // Ten-frame helper: draw one TWO-frame pair per place and animate on click
+    //
+    function renderTenFrameHelper(){
+      const container = document.getElementById('tenFrames');
+      container.innerHTML = '';
+
+      // If no current problem, show a short prompt
+      if (typeof state.a !== 'number' || typeof state.b !== 'number') {
+        container.textContent = 'Generate a problem to see ten-frames.';
+        return;
       }
 
-      state.digits = parseInt(digitsSelect.value,10);
-      state.willForce = forceRegroup.value;
-      state.sessionTotal = Math.max(1, parseInt(problemsInput.value,10) || 10);
+      // Show a frame pair only for the places in use (ones.. up to digits-1)
+      for (let col = 0; col < state.digits; col++) {
+        const frameRow = document.createElement('div');
+        frameRow.className = 'tenframe';
+        frameRow.tabIndex = 0;
+        frameRow.setAttribute('role', 'button');
+        frameRow.setAttribute('aria-label', `Ten-frames for ${col === 0 ? 'ones' : col === 1 ? 'tens' : col === 2 ? 'hundreds' : (col+1)+'-place'}`);
 
-      const addends = makeAddends(state.digits, state.willForce);
-      state.a = addends.a;
-      state.b = addends.b;
+        const label = document.createElement('div');
+        label.className = 'tenframe-label';
+        label.textContent = col === 0 ? 'Ones' : col === 1 ? 'Tens' : col === 2 ? 'Hundreds' : (col+1)+'-place';
 
+        // right column: pair + caption stacked vertically to avoid overlapping main column
+        const rightCol = document.createElement('div');
+        rightCol.style.display = 'flex';
+        rightCol.style.flexDirection = 'column';
+        rightCol.style.gap = '8px';
+
+        const pair = document.createElement('div');
+        pair.className = 'tf-pair';
+
+        const tf1 = document.createElement('div');
+        tf1.className = 'tf';
+        const r1a = document.createElement('div'); r1a.className = 'tf-row';
+        const r1b = document.createElement('div'); r1b.className = 'tf-row';
+        for (let i = 0; i < 10; i++) {
+          const box = document.createElement('div');
+          box.className = 'tf-box';
+          const dot = document.createElement('div');
+          dot.className = 'dot';
+          box.appendChild(dot);
+          if (i < 5) r1a.appendChild(box); else r1b.appendChild(box);
+        }
+        tf1.appendChild(r1a); tf1.appendChild(r1b);
+
+        const tf2 = document.createElement('div');
+        tf2.className = 'tf';
+        const r2a = document.createElement('div'); r2a.className = 'tf-row';
+        const r2b = document.createElement('div'); r2b.className = 'tf-row';
+        for (let i = 0; i < 10; i++) {
+          const box = document.createElement('div');
+          box.className = 'tf-box';
+          const dot = document.createElement('div');
+          dot.className = 'dot';
+          box.appendChild(dot);
+          if (i < 5) r2a.appendChild(box); else r2b.appendChild(box);
+        }
+        tf2.appendChild(r2a); tf2.appendChild(r2b);
+
+        pair.appendChild(tf1);
+        pair.appendChild(tf2);
+
+        const caption = document.createElement('div');
+        caption.className = 'tf-caption';
+        caption.textContent = 'Click to visualize making a ten without showing the final answer.';
+
+        rightCol.appendChild(pair);
+        rightCol.appendChild(caption);
+
+        frameRow.appendChild(label);
+        frameRow.appendChild(rightCol);
+
+        // click + keyboard activation
+        frameRow.addEventListener('click', () => animateTenFramePair(col));
+        frameRow.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); animateTenFramePair(col); } });
+
+        container.appendChild(frameRow);
+      }
+    }
+
+    // Animate two ten-frames for a column:
+    // - first frame shows anchor addend's dots (gold) and the moved portion from the other addend (blue) needed to make 10
+    // - second frame shows the leftover of the second addend (blue)
+    // This intentionally does not write the numeric column result; it only visualizes 10 + remainder.
+    function animateTenFramePair(col){
+      const container = document.getElementById('tenFrames');
+      const frameRow = container.children[col];
+      if(!frameRow) return;
+
+      const rightCol = frameRow.querySelector('div[style*="flex-direction"]') || frameRow.children[1];
+      if(!rightCol) return;
+      const pair = rightCol.querySelector('.tf-pair');
+      if(!pair) return;
+      const tf1Dots = Array.from(pair.children[0].querySelectorAll('.tf-box .dot'));
+      const tf2Dots = Array.from(pair.children[1].querySelectorAll('.tf-box .dot'));
+      const caption = rightCol.querySelector('.tf-caption');
+
+      // reset
+      tf1Dots.forEach(d => { d.className = 'dot'; });
+      tf2Dots.forEach(d => { d.className = 'dot'; });
+      caption.textContent = 'Visualizing...';
+
+      const pow = Math.pow(10, col);
+      const da = Math.floor(state.a / pow) % 10; // treat as anchor by size
+      const db = Math.floor(state.b / pow) % 10;
+
+      // Decide anchor: pick the larger addend for the stable visual (so big group sits in first frame)
+      // If equal, prefer A as anchor.
+      let anchor = da;
+      let other = db;
+      let anchorColor = 'a';
+      let otherColor = 'b';
+
+      // If B is larger, swap so first frame shows B in gold and A in blue to keep consistent visual
+      if (db > da) {
+        anchor = db;
+        other = da;
+        // keep colors semantics: anchor uses .a style (gold), other uses .b (blue)
+      }
+
+      // toTen = how many from 'other' are needed to complete ten for the anchor
+      const toTen = Math.max(0, 10 - anchor);
+      const moved = Math.min(toTen, other);
+      const remainder = Math.max(0, other - moved);
+
+      // animate anchor filling in first frame (gold)
+      for (let i = 0; i < anchor && i < 10; i++) {
+        setTimeout(((idx) => () => { tf1Dots[idx].classList.add('filled', anchorColor); })(i), i * 55);
+      }
+
+      // animate moved counters (from other) filling to complete the ten in first frame (blue)
+      const startIndex = Math.min(anchor, 10);
+      for (let j = 0; j < moved && startIndex + j < 10; j++) {
+        setTimeout(((idx) => () => { tf1Dots[idx].classList.add('filled', otherColor); })(startIndex + j), (anchor + j) * 55 + 80);
+      }
+
+      // animate remainder in second frame (blue)
+      const secondStart = 0;
+      for (let k = 0; k < remainder && secondStart + k < 10; k++) {
+        setTimeout(((idx) => () => { tf2Dots[idx].classList.add('filled', otherColor); })(secondStart + k), (anchor + moved + k) * 55 + 180);
+      }
+
+      // After animation, show a short descriptive caption in the explain area (no final numeric answer)
+      const finalDelay = Math.max(500, (anchor + moved + remainder) * 55 + 220);
+      setTimeout(() => {
+        const placeName = col === 0 ? 'ones' : col === 1 ? 'tens' : col === 2 ? 'hundreds' : `${col+1}-place`;
+        const lines = [];
+        lines.push(`Looking at the ${placeName} column: the larger group (${anchor}) is shown in gold in the first block.`);
+        if (moved > 0) lines.push(`We moved ${moved} from the other addend (blue) to complete the ten in the first block.`);
+        if (remainder > 0) lines.push(`The remaining ${remainder} (blue) are shown in the second block.`);
+        if (moved === 0) lines.push(`No counters needed to complete a ten from the other addend; the second block shows the other addend's counters when present.`);
+
+        // Explain text intentionally avoids giving the final written digit or carry; it's a visual scaffold.
+        explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Ten-frames — ${placeName}</div><ol class="step-list">${lines.map(s => `<li>${s}</li>`).join('')}</ol>`;
+        explainBox.hidden = false;
+
+        caption.textContent = 'Top block = completed ten (if applicable). Bottom block = leftover counters.';
+      }, finalDelay);
+    }
+
+    //
+    // UI wiring and helpers (newProblem, event hookups)
+    //
+    function newProblem(){
+      state.digits = Number(digitsSelect.value) || 3;
+      state.willForce = forceRegroup.value || 'either';
+      state.sessionTotal = Number(problemsInput.value) || 10;
+      state.current = null;
+
+      const pair = makeAddends(state.digits, state.willForce);
+      state.a = pair.a;
+      state.b = pair.b;
       state.asked++;
       askedEl.textContent = state.asked;
 
-      // reset current tracker
-      state.current = null;
-
       renderProblem();
-      updateProgress();
+      saveStateToLocalStorage();
     }
 
-    // Events
+    // Wire controls
     newBtn.addEventListener('click', newProblem);
     checkBtn.addEventListener('click', checkAnswer);
     explainBtn.addEventListener('click', showExplanation);
     newLessonBtn.addEventListener('click', startNewLesson);
-    showCarryBoxes.addEventListener('change', () => {
-      carryRow.style.display = showCarryBoxes.checked ? 'flex' : 'none';
-    });
-    problemsInput.addEventListener('change', () => {
-      state.sessionTotal = Math.max(1, parseInt(problemsInput.value,10) || 10);
-      updateProgress();
-    });
-    digitsSelect.addEventListener('change', newProblem);
-    forceRegroup.addEventListener('change', newProblem);
-    modeSelect.addEventListener('change', () => {
-      modeLabel.textContent = modeSelect.value === 'challenge' ? 'Challenge' : 'Practice';
-    });
     downloadBtn.addEventListener('click', downloadSolvedPDF);
     printBtn.addEventListener('click', printSolved);
 
+    digitsSelect.addEventListener('change', () => {
+      state.digits = Number(digitsSelect.value) || 3;
+      renderProblem();
+    });
+    forceRegroup.addEventListener('change', () => {
+      state.willForce = forceRegroup.value;
+    });
+    problemsInput.addEventListener('change', () => {
+      state.sessionTotal = Number(problemsInput.value) || 10;
+      updateProgress();
+      saveStateToLocalStorage();
+    });
+    modeSelect.addEventListener('change', () => {
+      modeLabel.textContent = modeSelect.value === 'practice' ? 'Practice' : 'Challenge';
+    });
+    showCarryBoxes.addEventListener('change', () => {
+      carryRow.style.display = showCarryBoxes.checked ? 'flex' : 'none';
+    });
+
+    // keyboard: Enter on page triggers check when focused on non-inputs (conservative)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && document.activeElement && document.activeElement.tagName !== 'INPUT') {
+        checkAnswer();
+      }
+    });
+
     // Initialize
-    // Try to load saved session first
-    const loadedFromStorage = loadStateFromLocalStorage();
-    updateProgress();
-    // Always generate a new problem to start or continue
-    newProblem();
+    (function init(){
+      loadStateFromLocalStorage();
+      // If no saved problem, generate one
+      if (typeof state.a !== 'number' || typeof state.b !== 'number') {
+        // keep digits from UI
+        state.digits = Number(digitsSelect.value) || 3;
+        state.willForce = forceRegroup.value || 'either';
+        state.sessionTotal = Number(problemsInput.value) || 10;
+        newProblem();
+      } else {
+        // ensure UI reflects state
+        renderProblem();
+      }
+      updateProgress();
+    })();
+
   </script>
 </body>
 </html>
