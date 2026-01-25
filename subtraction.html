@@ -1,1 +1,1426 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Subtraction with Regrouping</title>
+  <meta name="description" content="Interactive practice for subtraction with regrouping." />
 
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#0f1724;
+      --muted:#9aa4b2;
+      --accent:#22d3ee;
+      --accent-2:#7c3aed;
+      --good:#16a34a;
+      --bad:#ef4444;
+      --card:#071025;
+      --glass: rgba(255,255,255,0.03);
+      font-synthesis: none;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg,var(--bg),#031025 120%);
+      color:#e6eef6;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:24px;
+      box-sizing:border-box;
+    }
+    .wrap{max-width:1000px;margin:0 auto;}
+    header{display:flex;gap:16px;align-items:center;margin-bottom:12px;}
+    .logo{
+      width:64px;height:64px;border-radius:12px;
+      background:linear-gradient(135deg,var(--accent),var(--accent-2));
+      display:flex;align-items:center;justify-content:center;
+      font-weight:700;color:#021022;font-size:20px;
+      box-shadow:0 6px 20px rgba(34,211,238,0.12);
+    }
+    h1{margin:0;font-size:20px;}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .layout{
+      display:grid;
+      grid-template-columns: 340px 1fr;
+      gap:20px;
+      margin-top:18px;
+    }
+
+    .card{
+      background:linear-gradient(180deg,var(--panel),#07142a);
+      border-radius:12px;padding:16px;
+      box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+      border:1px solid rgba(255,255,255,0.03);
+    }
+
+    /* Controls */
+    .controls label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    .controls .row{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    select,input[type="number"],input[type="checkbox"]{
+      background:var(--glass);border:1px solid rgba(255,255,255,0.04);
+      color:inherit;padding:8px;border-radius:8px;font-size:14px;width:100%;
+      box-sizing:border-box;
+    }
+    .switch{display:flex;gap:8px;align-items:center;}
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;
+      background:linear-gradient(90deg,var(--accent),var(--accent-2));
+      color:#021022;font-weight:700;padding:10px 14px;border-radius:10px;border:none;
+      cursor:pointer; box-shadow:0 8px 18px rgba(7,20,40,0.4);
+    }
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.05);color:var(--accent);}
+    .tiny{font-size:13px;padding:6px 9px;border-radius:8px}
+
+    /* Problem area */
+    .stage{display:flex;flex-direction:column;gap:12px;align-items:stretch;}
+    .problem-card{
+      padding:18px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);
+      display:flex;gap:16px;align-items:flex-start;
+    }
+    .vertical-add{
+      background:linear-gradient(180deg,#041426 80%,transparent);
+      padding:18px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);
+      min-width:260px;
+      position:relative;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    /* unified sizes so everything lines up */
+    .grid-row{
+      display:flex;
+      flex-direction:row-reverse; /* rightmost column is the first child visually (ones) */
+      gap:6px;
+      align-items:center;
+    }
+
+    .digit-cell, .carry-input, .digit-input, .carry-placeholder {
+      width:44px; min-width:44px; box-sizing:border-box; text-align:center;
+      border-radius:6px;
+      font-family: "Courier New", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    }
+
+    .digit-cell{
+      padding:8px 6px; font-size:28px; color:#e6eef6; background:transparent; border:1px solid transparent;
+      min-height:44px; display:flex; align-items:center; justify-content:center;
+    }
+
+    .carry-input{
+      padding:6px 6px; font-size:16px; background:rgba(255,255,255,0.02);
+      border:1px dashed rgba(255,255,255,0.04); color:var(--accent); height:36px;
+    }
+
+    .carry-placeholder{
+      height:36px; display:flex; align-items:center; justify-content:center;
+      color:rgba(255,255,255,0.06); border:1px dashed transparent; background:transparent;
+    }
+
+    .digit-input{
+      padding:6px 6px; font-size:20px; background:transparent;
+      border:1px dashed rgba(255,255,255,0.05); color:inherit; height:44px;
+    }
+
+    .separator{height:2px;background:linear-gradient(90deg,var(--accent),transparent);margin:6px 0;border-radius:2px}
+
+    .sum-row{display:flex;gap:6px;align-items:center}
+    .hint{font-size:13px;color:var(--muted);margin-top:8px}
+
+    /* suggested carry visual (explain only) - does NOT write a value */
+    .carry-input.suggest {
+      border:1px solid rgba(34,211,238,0.18) !important;
+      box-shadow: 0 4px 10px rgba(34,211,238,0.04);
+    }
+
+    /* Stats */
+    .stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .stat{background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;font-size:13px;min-width:88px;text-align:center}
+    .progress{height:10px;background:rgba(255,255,255,0.03);border-radius:6px;overflow:hidden}
+    .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0%}
+
+    /* Explanation / base-ten */
+    .explain{
+      margin-top:8px;background:rgba(255,255,255,0.01);padding:12px;border-radius:8px;font-size:14px;color:var(--muted)
+    }
+    #explainText{ white-space: pre-line }
+    .step-list{ margin:8px 0 0; padding-left:18px }
+    .step-list li{ margin:4px 0 }
+
+    /* feedback */
+    .correct{border:1px solid rgba(22,163,74,0.18);box-shadow:0 6px 22px rgba(22,163,74,0.06)}
+    .wrong{border:1px solid rgba(239,68,68,0.14);box-shadow:0 6px 22px rgba(239,68,68,0.04)}
+
+    /* solved list */
+    .solved-card{margin-top:8px}
+    .solved-list{
+      margin-top:8px;display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;
+      padding:8px;background:rgba(255,255,255,0.01);border-radius:8px;border:1px solid rgba(255,255,255,0.02);
+    }
+    .solved-item{display:flex;justify-content:space-between;gap:12px;padding:8px;border-radius:8px;background:rgba(255,255,255,0.01);align-items:center}
+    .solved-item .right{display:flex;gap:8px;align-items:center}
+    .solved-correct{color:var(--good);font-weight:700}
+    .solved-wrong{color:var(--bad);font-weight:700}
+    .solved-controls{display:flex;gap:8px;margin-top:8px;align-items:center}
+
+    /* MINI vertical layout for solved items */
+    .carry-cell{
+      padding:6px 6px; font-size:16px; background:rgba(255,255,255,0.02);
+      border:1px dashed rgba(255,255,255,0.04); color:var(--accent);
+      height:36px; display:flex; align-items:center; justify-content:center;
+      border-radius:6px; width:44px; min-width:44px; box-sizing:border-box;
+      font-family: "Courier New", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; text-align:center;
+    }
+    .vertical-add.mini{ padding:12px; gap:6px; min-width:auto; }
+    .vertical-add.mini .digit-cell,
+    .vertical-add.mini .carry-cell,
+    .vertical-add.mini .carry-placeholder,
+    .vertical-add.mini .digit-input{
+      width:32px;min-width:32px;min-height:32px;height:32px;font-size:18px;
+    }
+    .vertical-add.mini .carry-cell{font-size:14px;height:28px}
+    .vertical-add.mini .separator{margin:4px 0}
+
+    /* footer help */
+    footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+
+    /* Ten-frame helper (two frames per column, stacked vertically) */
+    .tenframes { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+    .tenframe { display:flex; gap:12px; align-items:flex-start; cursor:pointer; user-select:none; padding:6px; border-radius:8px; }
+    .tenframe-label { width:64px; font-size:13px; color:var(--muted); flex: 0 0 64px; }
+    .tf-pair { display:flex; flex-direction:column; gap:8px; align-items:flex-start; }
+    .tf { display:flex; flex-direction:column; gap:6px; background:rgba(255,255,255,0.01); padding:6px; border-radius:6px; }
+    .tf-row { display:flex; gap:6px; }
+    .tf-box {
+      width:26px; height:26px; border-radius:6px;
+      border:1px solid rgba(255,255,255,0.04);
+      background:transparent; display:flex; align-items:center; justify-content:center;
+    }
+    .dot { width:12px; height:12px; border-radius:50%; opacity:0; transform:translateY(-6px); transition:all 260ms ease; }
+    .dot.filled { opacity:1; transform:translateY(0); }
+    .dot.a { background: linear-gradient(90deg,#ffd27c,#ffb86b); } /* minuend color */
+    .dot.b { background: linear-gradient(90deg,#22d3ee,#7c3aed); } /* subtrahend color */
+    .tf-caption { margin-top:6px; font-size:13px; color:var(--muted); }
+    .tenframe:focus { outline:2px solid rgba(34,211,238,0.12); border-radius:8px; }
+
+    /* timer */
+    .timer-badge{
+      background:rgba(255,255,255,0.03);
+      padding:6px 10px;border-radius:8px;font-weight:700;color:var(--accent);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    }
+
+    /* top settings area */
+    .controls-top { margin-top:12px; display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+    .controls-top .card{ padding:12px; display:flex; flex-direction:column; gap:8px; width:100%; }
+    .controls-top .row{ margin:0; display:flex; gap:8px; align-items:center; width:100%; }
+    .controls-top .stats{ margin-top:4px; }
+
+    /* responsive */
+    @media (max-width:860px){
+      .layout{grid-template-columns:1fr; }
+      .vertical-add{min-width:100%}
+      .tenframe-label { width:56px; flex: 0 0 56px; font-size:12px; }
+      .controls-top{ flex-direction:column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo" aria-hidden="true">SUB</div>
+      <div>
+        <h1>Subtraction with Regrouping</h1>
+        <p class="lead">Interactive page for learning subtraction with regrouping.</p>
+      </div>
+    </header>
+
+    <!-- TOP: single settings card that spans the width -->
+    <div class="controls-top">
+      <div class="card" aria-labelledby="lesson-settings-heading">
+        <h3 id="lesson-settings-heading" style="margin:0 0 6px">Lesson settings</h3>
+
+        <div class="row" style="width:100%">
+          <label for="digits" style="flex:0 0 160px">Digits per number</label>
+          <select id="digits" title="Select number of digits" style="flex:1">
+            <!-- only 3 and 4 allowed for normal practice -->
+            <option value="3" selected>3 digits</option>
+            <option value="4">4 digits</option>
+          </select>
+        </div>
+
+        <div class="row" style="width:100%">
+          <label style="flex:0 0 160px">Mastery challenge</label>
+          <div style="flex:1;color:var(--muted);font-size:13px;padding:8px;border-radius:6px;background:var(--glass)">
+            Press "Start Challenge" to try one 5‑digit regroup problem with a 45 second timer. Pass to show mastery and be done with subtraction lessons.
+          </div>
+          <button id="startChallengeBtn" class="btn tiny" title="Start the 45s mastery challenge" style="margin-left:8px">Start Challenge</button>
+        </div>
+
+        <div class="stats" style="margin-top:6px">
+          <div class="stat">Asked: <strong id="asked">0</strong></div>
+          <div class="stat">Correct: <strong id="correct">0</strong></div>
+          <div class="stat">Streak: <strong id="streak">0</strong></div>
+        </div>
+
+        <div style="width:100%; margin-top:8px">
+          <div class="progress" aria-hidden="true" style="margin-bottom:6px"><i id="progBar"></i></div>
+          <div id="sessionInfo" class="hint">Session: 0 / 10 done.</div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <button id="downloadBtn" class="btn tiny" disabled title="Download problems & answers as PDF">Download PDF</button>
+          <div style="flex:1"></div>
+          <button id="newLessonBtnTop" class="btn ghost tiny" title="Start a new lesson and clear progress">Start New Lesson</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="layout" style="margin-top:18px">
+      <!-- LEFT: ten-frame helper -->
+      <aside class="card" aria-labelledby="helpers-heading">
+        <h4 id="helpers-heading" style="margin-top:0">Helpers</h4>
+
+        <!-- Ten-frame helper -->
+        <div id="tenFrameWrap" style="margin-top:6px">
+          <h4 style="margin:6px 0 8px;font-size:14px">Ten-frame helper</h4>
+          <div id="tenFrames" class="tenframes"></div>
+        </div>
+      </aside>
+
+      <main class="card stage" aria-live="polite">
+        <div class="problem-card" id="problemCard">
+          <div class="vertical-add" id="verticalAdd" role="group" aria-label="Subtraction problem">
+            <!-- carries (always visible) - has one extra cell on the left to accept overflow borrow -->
+            <div id="carryRow" class="grid-row" aria-hidden="false"></div>
+
+            <!-- numbers -->
+            <div id="addendRowA" class="grid-row" aria-hidden="true" title="Minuend"></div>
+            <div id="addendRowB" class="grid-row" aria-hidden="true" title="Subtrahend"></div>
+
+            <div class="separator" aria-hidden="true"></div>
+
+            <!-- sum row (has one extra leftmost box to accept overflow digit) -->
+            <div class="grid-row" id="sumRow" role="group" aria-label="Your answer"></div>
+
+            <div class="hint" id="problemHint">Generate a new problem to begin.</div>
+          </div>
+
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-size:12px;color:var(--muted)">Current mode</div>
+                <div id="modeLabel" style="font-weight:700">Practice</div>
+              </div>
+            </div>
+
+            <div id="explain" class="explain" hidden>
+              <div id="explainText">Explaination</div>
+            </div>
+
+            <!-- Buttons under current problem -->
+            <div id="problemControls" style="margin-top:12px;display:flex;gap:8px;align-items:center">
+              <button id="newBtn" class="btn tiny" title="Next problem" disabled>Next problem</button>
+              <button id="checkBtn" class="btn ghost tiny" title="Check answer">Check</button>
+              <button id="explainBtn" class="btn ghost tiny" title="Show step-by-step">Explain</button>
+
+              <!-- timer / retry area -->
+              <div style="flex:1"></div>
+              <div id="timerWrap" style="display:none;align-items:center;gap:8px">
+                <div class="timer-badge" id="timer">0:45</div>
+                <button id="retryBtn" class="btn ghost tiny" style="display:none">Retry</button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Solved problems box -->
+        <div id="solvedCard" class="card solved-card" hidden>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:700">Solved problems</div>
+            <div style="font-size:13px;color:var(--muted)">Solved in this session</div>
+          </div>
+
+          <div id="solvedList" class="solved-list" aria-live="polite"></div>
+
+          <div class="solved-controls">
+            <div style="font-size:13px;color:var(--muted)">When 10 problems are solved you can download your work.</div>
+            <div style="flex:1"></div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // DOM refs
+    const digitsSelect = document.getElementById('digits');
+    const startChallengeBtn = document.getElementById('startChallengeBtn');
+    const modeLabel = document.getElementById('modeLabel');
+
+    const newBtn = document.getElementById('newBtn'); // Next problem
+    const checkBtn = document.getElementById('checkBtn');
+    const explainBtn = document.getElementById('explainBtn');
+    const retryBtn = document.getElementById('retryBtn');
+    const timerWrap = document.getElementById('timerWrap');
+    const timerEl = document.getElementById('timer');
+    const newLessonBtnTop = document.getElementById('newLessonBtnTop');
+
+    const carryRow = document.getElementById('carryRow');
+    const addendRowA = document.getElementById('addendRowA');
+    const addendRowB = document.getElementById('addendRowB');
+    const sumRow = document.getElementById('sumRow');
+    const problemHint = document.getElementById('problemHint');
+
+    const explainBox = document.getElementById('explain');
+    const explainText = document.getElementById('explainText');
+
+    const solvedCard = document.getElementById('solvedCard');
+    const solvedList = document.getElementById('solvedList');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    const askedEl = document.getElementById('asked');
+    const correctEl = document.getElementById('correct');
+    const streakEl = document.getElementById('streak');
+    const progBar = document.getElementById('progBar');
+    const sessionInfo = document.getElementById('sessionInfo');
+
+    let state = {
+      a: null,
+      b: null,
+      digits: 3,
+      asked: 0,
+      correct: 0,
+      streak: 0,
+      sessionTotal: 10,  // fixed for practice
+      sessionDone: 0,
+      solved: [],
+      current: null,
+      inChallenge: false
+    };
+
+    // Challenge timer state
+    let challengeTimer = null;
+    let challengeTimeRemaining = 0; // seconds
+    const CHALLENGE_SECONDS = 45;
+
+    // LocalStorage key for persistence
+    const STORAGE_KEY = 'subtraction_session_state';
+    const DOWNLOAD_THRESHOLD = 10; // Minimum solved problems required for download
+
+    // Save state to localStorage (minimal)
+    function saveStateToLocalStorage() {
+      const stateToSave = {
+        asked: state.asked,
+        correct: state.correct,
+        streak: state.streak,
+        sessionDone: state.sessionDone,
+        solved: state.solved,
+        digits: state.digits
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stateToSave));
+      } catch(e) {
+        console.error('Failed to save to localStorage:', e);
+      }
+    }
+
+    // Load state from localStorage
+    function loadStateFromLocalStorage() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          state.asked = parsed.asked ?? 0;
+          state.correct = parsed.correct ?? 0;
+          state.streak = parsed.streak ?? 0;
+          state.sessionDone = parsed.sessionDone ?? 0;
+          state.solved = parsed.solved ?? [];
+          state.digits = parsed.digits ?? 3;
+
+          // Update UI elements
+          askedEl.textContent = state.asked;
+          correctEl.textContent = state.correct;
+          streakEl.textContent = state.streak;
+          digitsSelect.value = state.digits;
+
+          // Restore solved list if any
+          if (state.solved.length > 0) {
+            renderSolvedList();
+            solvedCard.hidden = false;
+            // allow download if either threshold met
+            downloadBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
+          }
+
+          updateProgress();
+          return true;
+        }
+      } catch(e) {
+        console.error('Failed to load from localStorage:', e);
+      }
+      return false;
+    }
+
+    // Clear localStorage and reset session
+    function startNewLesson() {
+      if (state.asked > 0) {
+        const confirmed = confirm('Are you sure you want to start a new lesson? This will clear all saved progress from the current session.');
+        if (!confirmed) return;
+      }
+
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch(e) {
+        console.error('Failed to clear localStorage:', e);
+      }
+
+      // Reset state
+      state.asked = 0;
+      state.correct = 0;
+      state.streak = 0;
+      state.sessionDone = 0;
+      state.solved = [];
+      state.current = null;
+      state.inChallenge = false;
+
+      // Update UI
+      askedEl.textContent = state.asked;
+      correctEl.textContent = state.correct;
+      streakEl.textContent = state.streak;
+      solvedCard.hidden = true;
+      solvedList.innerHTML = '';
+      downloadBtn.disabled = true;
+      updateProgress();
+
+      // Ensure mode returns to practice
+      modeLabel.textContent = 'Practice';
+      digitsSelect.disabled = false;
+
+      // Generate first problem
+      newProblem();
+    }
+
+    function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+    // makeAddends always forces at least one regroup (borrowing)
+    function makeAddends(digits){
+      while(true){
+        const max = Math.pow(10,digits)-1;
+        const min = Math.pow(10,digits-1);
+        let a = randInt(min, max);
+        let b = randInt(min, max);
+        // Ensure a > b for subtraction
+        if(a < b){ [a,b] = [b,a]; }
+        if(a === b) continue;
+        const hasRegroup = (() => {
+          for(let i=0;i<digits;i++){
+            const pow=Math.pow(10,i);
+            const da = Math.floor(a/pow)%10;
+            const db = Math.floor(b/pow)%10;
+            if(da < db) return true; // Need to borrow
+          }
+          return false;
+        })();
+        if(!hasRegroup) continue;
+        return {a,b};
+      }
+    }
+
+    function computeDifferenceArrayFor(a,b,d){
+      const total = a - b;
+      const arr=[];
+      for(let i=0;i<=d;i++){
+        arr.push(Math.floor(total/Math.pow(10,i))%10);
+      }
+      return arr;
+    }
+
+    // compute borrows array for columns: returns length d array where arr[i] is borrow needed for column i
+    function computeBorrows(a,b,d){
+      const borrows = new Array(d).fill(0);
+      let borrow = 0;
+      for(let i=0;i<d;i++){
+        const pow = Math.pow(10,i);
+        let da = Math.floor(a/pow)%10;
+        const db = Math.floor(b/pow)%10;
+        da -= borrow; // subtract previous borrow
+        if(da < db){
+          borrow = 1;
+        } else {
+          borrow = 0;
+        }
+        borrows[i] = borrow;
+      }
+      return borrows;
+    }
+
+    function renderProblem(){
+      const d = state.digits, a = state.a, b = state.b;
+      carryRow.innerHTML = '';
+      addendRowA.innerHTML = '';
+      addendRowB.innerHTML = '';
+      sumRow.innerHTML = '';
+
+      // Borrow row: placeholder first, then borrow inputs (works with row-reverse)
+      for(let j=0;j<=d;j++){
+        if(j === 0){
+          const placeholder = document.createElement('div');
+          placeholder.className = 'carry-placeholder';
+          placeholder.textContent = '';
+          placeholder.setAttribute('aria-hidden', 'true');
+          carryRow.appendChild(placeholder);
+        } else {
+          const carryInput = document.createElement('input');
+          carryInput.type = 'text';
+          carryInput.inputMode = 'numeric';
+          carryInput.pattern = '[0-9]*';
+          carryInput.className = 'carry-input';
+          carryInput.maxLength = 1; // limit to one digit
+          carryInput.dataset.idx = j;
+          carryInput.setAttribute('aria-label','borrow for column '+(j+1));
+          carryInput.addEventListener('input', e => {
+            e.target.value = e.target.value.replace(/\D/g, '').slice(0,1);
+          });
+          carryInput.addEventListener('paste', e => {
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            carryInput.value = (text.match(/\d/) || [''])[0];
+          });
+          carryRow.appendChild(carryInput);
+        }
+      }
+      // carries are always visible
+      carryRow.style.display = 'flex';
+
+      // Addends
+      for(let i=0;i<d;i++){
+        const pow = Math.pow(10,i);
+        const da = Math.floor(a/pow)%10;
+        const db = Math.floor(b/pow)%10;
+        const cellA = document.createElement('div'); cellA.className='digit-cell'; cellA.textContent=da;
+        const cellB = document.createElement('div'); cellB.className='digit-cell'; cellB.textContent=db;
+        addendRowA.appendChild(cellA);
+        addendRowB.appendChild(cellB);
+      }
+
+      // Sum row inputs (d+1 to allow overflow) — limit to a single digit
+      for(let i=0;i<=d;i++){
+        const input = document.createElement('input');
+        input.type='text';
+        input.inputMode='numeric';
+        input.pattern='[0-9]*';
+        input.maxLength=1; // limit to one digit
+        input.className='digit-input';
+        input.dataset.idx = i;
+        input.setAttribute('aria-label','digit '+(i+1));
+        input.addEventListener('keydown', handleKeyNav);
+        input.addEventListener('input', e => {
+          e.target.value = e.target.value.replace(/\D/g,'').slice(0,1);
+        });
+        input.addEventListener('paste', e => {
+          e.preventDefault();
+          const text = (e.clipboardData || window.clipboardData).getData('text');
+          input.value = (text.match(/\d/) || [''])[0];
+        });
+        sumRow.appendChild(input);
+      }
+
+      problemHint.textContent = `Add ${state.a} and ${state.b}. Rightmost box is ones.`;
+      explainBox.hidden = true;
+
+      // Disable Next while this problem is active (will enable after finalize)
+      newBtn.disabled = true;
+
+      // Ensure check/Explain enabled (unless challenge times out)
+      checkBtn.disabled = false;
+      explainBtn.disabled = false;
+      retryBtn.style.display = 'none';
+
+      setTimeout(() => {
+        const inputs = sumRow.querySelectorAll('input');
+        if(inputs.length) inputs[0].focus();
+      }, 50);
+
+      // render ten-frames for the current problem (new helper)
+      renderTenFrameHelper();
+    }
+
+    function handleKeyNav(e){
+      const idx = Number(e.target.dataset.idx);
+      const inputs = Array.from(sumRow.querySelectorAll('input'));
+      if(e.key === 'ArrowLeft'){
+        e.preventDefault();
+        if(idx+1 < inputs.length) inputs[idx+1].focus();
+      } else if(e.key === 'ArrowRight'){
+        e.preventDefault();
+        if(idx-1 >= 0) inputs[idx-1].focus();
+      } else if(e.key === 'Enter'){
+        e.preventDefault();
+        checkAnswer();
+      }
+    }
+
+    function getUserDigits(){ // numeric for checking
+      const inputs = Array.from(sumRow.querySelectorAll('input'));
+      return inputs.map(i => {
+        const v = i.value.trim();
+        return v === '' ? 0 : parseInt(v,10);
+      });
+    }
+    function getUserDigitsRaw(){ // strings exactly as typed
+      const inputs = Array.from(sumRow.querySelectorAll('input'));
+      return inputs.map(i => i.value);
+    }
+    function getCarryInputsSnapshot(){
+      const cells = Array.from(carryRow.children);
+      // now we don't use dataset.autovalue; snapshot returns whatever user typed
+      return cells.map(cell => {
+        if(cell.tagName === 'INPUT'){
+          return cell.value || '';
+        }
+        return '';
+      });
+    }
+
+    function checkAnswer(){
+      // If challenge timer ran out, ignore checks
+      if (state.inChallenge && challengeTimeRemaining <= 0) return;
+
+      const user = getUserDigits();
+      const userRaw = getUserDigitsRaw();
+      const expected = computeDifferenceArrayFor(state.a, state.b, state.digits);
+
+      let allGood = true;
+      const inputs = Array.from(sumRow.querySelectorAll('input'));
+      inputs.forEach(i => {
+        i.style.border='1px dashed rgba(255,255,255,0.05)';
+        i.style.background = 'transparent';
+      });
+
+      for(let i=0;i<expected.length;i++){
+        if(user[i] === expected[i]){
+          inputs[i].style.background = 'linear-gradient(90deg, rgba(34,211,238,0.06), rgba(124,58,237,0.02))';
+          inputs[i].style.border = '1px solid rgba(34,211,238,0.18)';
+        } else {
+          inputs[i].style.background = 'linear-gradient(90deg, rgba(239,68,68,0.02), transparent)';
+          inputs[i].style.border = '1px solid rgba(239,68,68,0.18)';
+          allGood = false;
+        }
+      }
+
+      if(allGood){
+        flashProblem('Correct! Nice work.', true);
+        state.correct++;
+        state.streak++;
+        correctEl.textContent = state.correct;
+        streakEl.textContent = state.streak;
+        confetti();
+
+        // If in challenge, stop timer and mark success
+        if(state.inChallenge){
+          stopChallengeTimer();
+          explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Challenge</div><div class="step-list"><strong style="color:var(--good)">Passed!</strong> You solved the 5-digit regroup problem within the time limit.</div>`;
+          explainBox.hidden = false;
+        }
+      } else {
+        flashProblem('Not quite — press "Explain" for a guided step-by-step.', false);
+        state.streak = 0;
+        streakEl.textContent = state.streak;
+      }
+
+      // Attempt tracking
+      if(!state.current){
+        state.current = {
+          a: state.a, b: state.b, digits: state.digits,
+          expectedDigits: expected.slice(),
+          attempts: 0,
+          finalized: false,
+          startTime: new Date().toISOString()
+        };
+      }
+      state.current.attempts++;
+      state.current.lastAttempt = {
+        userDigitsRaw: userRaw.slice(),
+        carryInputs: getCarryInputsSnapshot().slice(),
+        correct: allGood,
+        timestamp: new Date().toISOString()
+      };
+
+      if(allGood && !state.current.finalized){
+        finalizeCurrentProblem(true);
+      }
+    }
+
+    function flashProblem(msg, good){
+      const card = document.getElementById('verticalAdd');
+      card.classList.remove('correct','wrong');
+      if(good) card.classList.add('correct'); else card.classList.add('wrong');
+      problemHint.textContent = msg;
+      setTimeout(()=>{ card.classList.remove('correct','wrong'); }, 1400);
+    }
+
+    function showExplanation(){
+      const a = state.a, b = state.b, d = state.digits;
+
+      // Build a clear, ordered step list
+      const steps = [];
+      let borrow = 0;
+      for(let i=0;i<d;i++){
+        const pow = Math.pow(10,i);
+        let da = Math.floor(a/pow)%10;
+        const db = Math.floor(b/pow)%10;
+        const placeName = i===0 ? "ones" : i===1 ? "tens" : i===2 ? "hundreds" : i===3 ? "thousands" : `${i+1}-place`;
+        
+        da -= borrow; // apply previous borrow
+        
+        if(da < db){
+          steps.push(`Subtract the ${placeName}: ${da} - ${db}. Since ${da} < ${db}, borrow 1 from the next place (making it ${da + 10}).`);
+          borrow = 1;
+        } else {
+          steps.push(`Subtract the ${placeName}: ${da} - ${db}` + (borrow? ` (after borrowing)`:`.`));
+          borrow = 0;
+        }
+      }
+
+      // Render as an ordered list
+      explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Step-by-step</div><ol class="step-list">` +
+        steps.map(s => `<li>${s}</li>`).join('') +
+        `</ol>`;
+
+      explainBox.hidden = false;
+
+      // Highlight borrow boxes (suggestion) but do NOT write values into them
+      const borrows = computeBorrows(state.a, state.b, d); // length d
+      const borrowCells = Array.from(carryRow.children);
+      for(let j=0;j<borrowCells.length;j++){
+        const fromIndex = j-1; // map carryRow[1] => borrow for column 0
+        const cell = borrowCells[j];
+        if(cell.tagName === 'INPUT'){
+          // remove previous suggestion state
+          cell.classList.remove('suggest');
+          if(fromIndex >= 0 && fromIndex < borrows.length && borrows[fromIndex]){
+            // visually suggest a borrow without changing input value
+            cell.classList.add('suggest');
+            cell.setAttribute('aria-label', `Suggested borrow ${borrows[fromIndex]} for column ${fromIndex+1}`);
+          } else {
+            // ensure label falls back
+            cell.setAttribute('aria-label', `borrow for column ${j+1}`);
+          }
+        }
+      }
+    }
+
+    function confetti(){
+      const count = 18;
+      const container = document.createElement('div');
+      container.style.position='fixed'; container.style.left=0; container.style.top=0; container.style.width='100%'; container.style.height='100%';
+      container.style.pointerEvents='none'; container.style.overflow='hidden';
+      document.body.appendChild(container);
+      for(let i=0;i<count;i++){
+        const el = document.createElement('div');
+        const size = randInt(8,16);
+        el.style.width = size+'px'; el.style.height = size+'px';
+        el.style.position='absolute';
+        el.style.left = randInt(10,90)+'%';
+        el.style.top = '-10px';
+        el.style.background = i%2? 'linear-gradient(90deg,#22d3ee,#7c3aed)':'linear-gradient(90deg,#ffd27c,#ffb86b)';
+        el.style.opacity = Math.random()*0.95+0.2;
+        el.style.transform = 'rotate('+randInt(0,360)+'deg)';
+        el.style.borderRadius = '2px';
+        el.style.zIndex = 9999;
+        container.appendChild(el);
+        const fall = randInt(800,1600);
+        el.animate([
+          { transform:`translateY(0) rotate(${randInt(0,360)}deg)`, opacity:1 },
+          { transform:`translateY(${window.innerHeight + 80}px) rotate(${randInt(360,720)}deg)`, opacity:0.8 }
+        ], { duration: fall, easing:'cubic-bezier(.2,.8,.2,1)' });
+      }
+      setTimeout(()=>{ document.body.removeChild(container); }, 1800);
+    }
+
+    function updateProgress(){
+      const total = state.sessionTotal;
+      const done = state.sessionDone;
+      const pct = Math.min(100, Math.round((done/total)*100));
+      progBar.style.width = pct + '%';
+      sessionInfo.textContent = `Session: ${done} / ${total} done.`;
+      if(done >= total && !state.inChallenge){
+        setTimeout(()=>{ alert(`Session complete! Problems asked: ${state.asked}. Correct: ${state.correct}.`); }, 300);
+      }
+    }
+
+    function finalizeCurrentProblem(wasCorrect){
+      if(!state.current || state.current.finalized) return;
+      const it = state.current;
+      const d = it.digits;
+      const expectedDigits = it.expectedDigits || computeDifferenceArrayFor(it.a, it.b, d);
+
+      // determine final carry inputs to save in solved list
+      let finalCarryInputs;
+      if(wasCorrect){
+        // compute true borrows and save them so PDF shows them
+        const carries = computeBorrows(it.a, it.b, d); // length d
+        finalCarryInputs = new Array(d+1).fill('');
+        for(let j=1;j<=d;j++){
+          const c = carries[j-1];
+          finalCarryInputs[j] = c ? String(c) : '';
+        }
+      } else {
+        // use whatever the user entered (if any)
+        finalCarryInputs = it.lastAttempt ? (it.lastAttempt.carryInputs.slice()) : new Array(d+1).fill('');
+      }
+
+      const finalUserDigitsRaw = it.lastAttempt ? it.lastAttempt.userDigitsRaw.slice() : Array(d+1).fill('');
+
+      state.solved.push({
+        a: it.a,
+        b: it.b,
+        digits: d,
+        expectedDigits: expectedDigits.slice(), // internal
+        finalCarryInputs,
+        finalUserDigitsRaw,
+        correct: !!wasCorrect,
+        attempts: it.attempts,
+        timestamp: new Date().toISOString()
+      });
+
+      it.finalized = true;
+      state.sessionDone++;
+      updateProgress();
+      renderSolvedList();
+
+      solvedCard.hidden = false;
+      // enable download if either we have enough saved problems OR we are in a challenge
+      downloadBtn.disabled = !(state.solved.length >= DOWNLOAD_THRESHOLD || state.inChallenge);
+
+      // Save to localStorage after finalizing
+      saveStateToLocalStorage();
+
+      // Keep Next disabled while in challenge; otherwise allow Next
+      if(!state.inChallenge){
+        setTimeout(()=>{ newBtn.disabled = false; }, 300);
+      } else {
+        newBtn.disabled = true;
+      }
+    }
+
+    function renderSolvedList(){
+      solvedList.innerHTML = '';
+      const list = state.solved.slice().reverse();
+      list.forEach((it) => {
+        const div = document.createElement('div');
+        div.className = 'solved-item';
+
+        const left = document.createElement('div');
+        const mini = document.createElement('div');
+        mini.className = 'vertical-add mini';
+
+        // Borrow row (saved finalCarryInputs) — add borrow cells first, placeholder last (aligns under row-reverse)
+        const carryRowMini = document.createElement('div');
+        carryRowMini.className = 'grid-row';
+        for(let j=1;j<=it.digits;j++){
+          const cell = document.createElement('div');
+          cell.className = 'carry-cell';
+          cell.textContent = (it.finalCarryInputs && typeof it.finalCarryInputs[j] !== 'undefined') ? it.finalCarryInputs[j] : '';
+          carryRowMini.appendChild(cell);
+        }
+        const ph = document.createElement('div');
+        ph.className = 'carry-placeholder';
+        carryRowMini.appendChild(ph);
+        mini.appendChild(carryRowMini);
+
+        // Addends rows
+        const rowA = document.createElement('div'); rowA.className = 'grid-row';
+        const rowB = document.createElement('div'); rowB.className = 'grid-row';
+        for(let i=0;i<it.digits;i++){
+          const da = Math.floor(it.a/Math.pow(10,i))%10;
+          const db = Math.floor(it.b/Math.pow(10,i))%10;
+          const cellA = document.createElement('div'); cellA.className='digit-cell'; cellA.textContent=da;
+          const cellB = document.createElement('div'); cellB.className='digit-cell'; cellB.textContent=db;
+          rowA.appendChild(cellA); rowB.appendChild(cellB);
+        }
+        mini.appendChild(rowA);
+        mini.appendChild(rowB);
+
+        const sep = document.createElement('div'); sep.className = 'separator';
+        mini.appendChild(sep);
+
+        // Sum row (typed-only)
+        const sumMini = document.createElement('div'); sumMini.className = 'grid-row';
+        for(let i=0;i<=it.digits;i++){
+          const cell = document.createElement('div'); cell.className='digit-cell';
+          cell.textContent = (it.finalUserDigitsRaw && typeof it.finalUserDigitsRaw[i] !== 'undefined') ? it.finalUserDigitsRaw[i] : '';
+          sumMini.appendChild(cell);
+        }
+        mini.appendChild(sumMini);
+
+        // Meta
+        const meta1 = document.createElement('div');
+        meta1.style.fontSize = '12px'; meta1.style.color = 'var(--muted)';
+        meta1.textContent = `${it.a} - ${it.b}`;
+        const meta2 = document.createElement('div');
+        meta2.style.fontSize = '12px'; meta2.style.color = 'var(--muted)';
+        meta2.textContent = `Attempts: ${it.attempts}`;
+        mini.appendChild(meta1);
+        mini.appendChild(meta2);
+
+        left.appendChild(mini);
+
+        const right = document.createElement('div');
+        right.className = 'right';
+        const status = document.createElement('div');
+        status.textContent = it.correct ? 'Correct' : 'Wrong';
+        status.className = it.correct ? 'solved-correct' : 'solved-wrong';
+        const time = document.createElement('div');
+        time.style.fontSize = '12px'; time.style.color = 'var(--muted)'; time.textContent = new Date(it.timestamp).toLocaleTimeString();
+        right.appendChild(status);
+        right.appendChild(time);
+
+        div.appendChild(left);
+        div.appendChild(right);
+        solvedList.appendChild(div);
+      });
+    }
+
+    function downloadSolvedPDF(){
+      if(state.solved.length === 0){ alert('No solved problems yet.'); return; }
+
+      const printWindow = window.open('', '_blank', 'width=800,height=1000,scrollbars=yes');
+      if(!printWindow) {
+        alert('Unable to open print window (popup blocked).');
+        return;
+      }
+      const doc = printWindow.document;
+      const style = `
+        body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:20px}
+        h1{font-size:20px;margin-bottom:8px}
+        p{margin:0 0 12px}
+        .solv{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:10px}
+        .status{font-weight:700}
+        .status.correct{color:#16a34a}
+        .status.wrong{color:#ef4444}
+        .vertical-add{background:#f7fafc;padding:12px;border-radius:8px;border:1px solid #e5e7eb;display:flex;flex-direction:column;gap:6px;min-width:auto}
+        .grid-row{display:flex;flex-direction:row-reverse;gap:6px;align-items:center}
+        .digit-cell,.carry-cell,.carry-placeholder{
+          width:32px;min-width:32px;height:32px;min-height:32px;
+          box-sizing:border-box;text-align:center;border-radius:6px;
+          font-family:Courier New,ui-monospace,monospace;font-size:18px;
+          display:flex;align-items:center;justify-content:center;
+        }
+        .carry-cell{border:1px dashed #cbd5e1;color:#0ea5e9;background:#f0f9ff}
+        .carry-placeholder{border:1px dashed transparent}
+        .separator{height:2px;background:linear-gradient(90deg,#22d3ee,transparent);border-radius:2px;margin:4px 0}
+        .meta{font-size:12px;color:#64748b}
+        @page{margin:20mm}
+      `;
+      doc.open();
+      doc.write('<!doctype html><html><head><meta charset="utf-8"><title>Solved Subtraction — PDF</title>');
+      doc.write('<style>'+style+'</style></head><body>');
+      doc.write('<h1>Solved subtraction problems</h1>');
+      doc.write('<p>Generated: '+ new Date().toLocaleString() +'</p>');
+
+      state.solved.forEach((it) => {
+        // Borrow HTML — add borrow cells first, placeholder last to align left under row-reverse
+        let carryHTML = '<div class="grid-row">';
+        for(let j=1;j<=it.digits;j++){
+          const val = (it.finalCarryInputs && typeof it.finalCarryInputs[j] !== 'undefined') ? it.finalCarryInputs[j] : '';
+          carryHTML += `<div class="carry-cell">${val}</div>`;
+        }
+        carryHTML += '<div class="carry-placeholder"></div>';
+        carryHTML += '</div>';
+
+        let rowAHTML = '<div class="grid-row">';
+        let rowBHTML = '<div class="grid-row">';
+        for(let i=0;i<it.digits;i++){
+          const da = Math.floor(it.a/Math.pow(10,i))%10;
+          const db = Math.floor(it.b/Math.pow(10,i))%10;
+          rowAHTML += `<div class="digit-cell">${da}</div>`;
+          rowBHTML += `<div class="digit-cell">${db}</div>`;
+        }
+        rowAHTML += '</div>'; rowBHTML += '</div>';
+
+        let sumHTML = '<div class="grid-row">';
+        for(let i=0;i<=it.digits;i++){
+          const val = (it.finalUserDigitsRaw && typeof it.finalUserDigitsRaw[i] !== 'undefined') ? it.finalUserDigitsRaw[i] : '';
+          sumHTML += `<div class="digit-cell">${val}</div>`;
+        }
+        sumHTML += '</div>';
+
+        doc.write(
+          `<div class="solv">
+            <div style="flex:1">
+              <div class="vertical-add">
+                ${carryHTML}
+                ${rowAHTML}
+                ${rowBHTML}
+                <div class="separator"></div>
+                ${sumHTML}
+                <div class="meta">${it.a} - ${it.b}</div>
+                <div class="meta">Attempts: ${it.attempts}</div>
+              </div>
+            </div>
+            <div>
+              <div class="status ${it.correct?'correct':'wrong'}">${it.correct?'Correct':'Wrong'}</div>
+              <div class="meta">${new Date(it.timestamp).toLocaleString()}</div>
+            </div>
+          </div>`
+        );
+      });
+
+      doc.write('</body></html>');
+      doc.close();
+      setTimeout(()=>{ printWindow.focus(); printWindow.print(); }, 350);
+    }
+
+    //
+    // Ten-frame helper: draw one TWO-frame pair per place and animate on click
+    //
+    function renderTenFrameHelper(){
+      const container = document.getElementById('tenFrames');
+      container.innerHTML = '';
+
+      // If no current problem, show a short prompt
+      if (typeof state.a !== 'number' || typeof state.b !== 'number') {
+        container.textContent = 'Generate a problem to see ten-frames.';
+        return;
+      }
+
+      // Show a frame pair only for the places in use
+      for (let col = 0; col < state.digits; col++) {
+        const frameRow = document.createElement('div');
+        frameRow.className = 'tenframe';
+        frameRow.tabIndex = 0;
+        frameRow.setAttribute('role', 'button');
+
+        // place label mapping (include thousands for 4th place)
+        const labelText = col === 0 ? 'Ones' : col === 1 ? 'Tens' : col === 2 ? 'Hundreds' : col === 3 ? 'Thousands' : (col+1)+'-place';
+        frameRow.setAttribute('aria-label', `Ten-frames for ${labelText.toLowerCase()}`);
+
+        const label = document.createElement('div');
+        label.className = 'tenframe-label';
+        label.textContent = labelText;
+
+        const rightCol = document.createElement('div');
+        rightCol.style.display = 'flex';
+        rightCol.style.flexDirection = 'column';
+        rightCol.style.gap = '8px';
+
+        const pair = document.createElement('div');
+        pair.className = 'tf-pair';
+
+        const tf1 = document.createElement('div');
+        tf1.className = 'tf';
+        const r1a = document.createElement('div'); r1a.className = 'tf-row';
+        const r1b = document.createElement('div'); r1b.className = 'tf-row';
+        for (let i = 0; i < 10; i++) {
+          const box = document.createElement('div');
+          box.className = 'tf-box';
+          const dot = document.createElement('div');
+          dot.className = 'dot';
+          box.appendChild(dot);
+          if (i < 5) r1a.appendChild(box); else r1b.appendChild(box);
+        }
+        tf1.appendChild(r1a); tf1.appendChild(r1b);
+
+        const tf2 = document.createElement('div');
+        tf2.className = 'tf';
+        const r2a = document.createElement('div'); r2a.className = 'tf-row';
+        const r2b = document.createElement('div'); r2b.className = 'tf-row';
+        for (let i = 0; i < 10; i++) {
+          const box = document.createElement('div');
+          box.className = 'tf-box';
+          const dot = document.createElement('div');
+          dot.className = 'dot';
+          box.appendChild(dot);
+          if (i < 5) r2a.appendChild(box); else r2b.appendChild(box);
+        }
+        tf2.appendChild(r2a); tf2.appendChild(r2b);
+
+        pair.appendChild(tf1);
+        pair.appendChild(tf2);
+
+        const caption = document.createElement('div');
+        caption.className = 'tf-caption';
+        caption.textContent = '';
+
+        rightCol.appendChild(pair);
+        rightCol.appendChild(caption);
+
+        frameRow.appendChild(label);
+        frameRow.appendChild(rightCol);
+
+        // click + keyboard activation
+        frameRow.addEventListener('click', () => animateTenFramePair(col));
+        frameRow.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); animateTenFramePair(col); } });
+
+        container.appendChild(frameRow);
+      }
+    }
+
+    // Animate two ten-frames for a column (stacked visual) - SUBTRACTION VERSION
+    function animateTenFramePair(col){
+      const container = document.getElementById('tenFrames');
+      const frameRow = container.children[col];
+      if(!frameRow) return;
+
+      const rightCol = frameRow.querySelector('div[style*="flex-direction"]') || frameRow.children[1];
+      if(!rightCol) return;
+      const pair = rightCol.querySelector('.tf-pair');
+      if(!pair) return;
+      const tf1Dots = Array.from(pair.children[0].querySelectorAll('.tf-box .dot'));
+      const tf2Dots = Array.from(pair.children[1].querySelectorAll('.tf-box .dot'));
+      const caption = rightCol.querySelector('.tf-caption');
+
+      // reset
+      tf1Dots.forEach(d => { d.className = 'dot'; });
+      tf2Dots.forEach(d => { d.className = 'dot'; });
+      caption.textContent = 'Visualizing...';
+
+      const pow = Math.pow(10, col);
+      let minuend = Math.floor(state.a / pow) % 10;
+      const subtrahend = Math.floor(state.b / pow) % 10;
+
+      // Check if we need to borrow
+      const needsBorrow = minuend < subtrahend;
+      let borrowed = 0;
+      
+      if (needsBorrow) {
+        borrowed = 10;
+        minuend += 10;
+      }
+
+      // First, show the minuend (gold dots)
+      const totalToShow = Math.min(minuend, 20); // can be more than 10 if borrowed
+      const inFirstFrame = Math.min(totalToShow, 10);
+      const inSecondFrame = totalToShow - inFirstFrame;
+
+      // animate minuend in first frame
+      for (let i = 0; i < inFirstFrame; i++) {
+        setTimeout(((idx) => () => { tf1Dots[idx].classList.add('filled','a'); })(i), i * 55);
+      }
+
+      // if borrowed, show extra 10 in second frame
+      for (let j = 0; j < inSecondFrame; j++) {
+        setTimeout(((idx) => () => { tf2Dots[idx].classList.add('filled','a'); })(j), (inFirstFrame + j) * 55 + 80);
+      }
+
+      // Now remove (fade out) the subtrahend amount (blue -> removed)
+      const removeDelay = totalToShow * 55 + 300;
+      for (let k = 0; k < subtrahend; k++) {
+        setTimeout(((idx) => () => {
+          if (idx < 10) {
+            tf1Dots[idx].classList.remove('a');
+            tf1Dots[idx].classList.add('b'); // change to blue briefly
+            setTimeout(() => { tf1Dots[idx].classList.remove('filled'); }, 100);
+          } else {
+            tf2Dots[idx-10].classList.remove('a');
+            tf2Dots[idx-10].classList.add('b');
+            setTimeout(() => { tf2Dots[idx-10].classList.remove('filled'); }, 100);
+          }
+        })(k), removeDelay + k * 55);
+      }
+
+      // Show explanation
+      const finalDelay = removeDelay + subtrahend * 55 + 300;
+      setTimeout(() => {
+        const placeName = col === 0 ? 'ones' : col === 1 ? 'tens' : col === 2 ? 'hundreds' : col === 3 ? 'thousands' : `${col+1}-place`;
+        const lines = [];
+        const originalMinuend = Math.floor(state.a / pow) % 10;
+        if (needsBorrow) {
+          lines.push(`Looking at the ${placeName} column: ${originalMinuend} is less than ${subtrahend}, so we borrow 10 from the next place, making it ${minuend}.`);
+        } else {
+          lines.push(`Looking at the ${placeName} column: we start with ${minuend} (shown in gold).`);
+        }
+        lines.push(`We remove ${subtrahend} (shown briefly in blue before disappearing).`);
+        lines.push(`What remains is the answer for this place value.`);
+
+        explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Ten-frames — ${placeName}</div><ol class="step-list">${lines.map(s => `<li>${s}</li>`).join('')}</ol>`;
+        explainBox.hidden = false;
+
+        caption.textContent = '';
+      }, finalDelay);
+    }
+
+    //
+    // Challenge timer helpers
+    //
+    function startChallengeTimer(){
+      stopChallengeTimer();
+      challengeTimeRemaining = CHALLENGE_SECONDS;
+      timerWrap.style.display = 'flex';
+      updateTimerDisplay();
+      challengeTimer = setInterval(() => {
+        challengeTimeRemaining--;
+        updateTimerDisplay();
+        if(challengeTimeRemaining <= 0){
+          stopChallengeTimer();
+          handleChallengeTimeout();
+        }
+      }, 1000);
+    }
+    function stopChallengeTimer(){
+      if(challengeTimer) {
+        clearInterval(challengeTimer);
+        challengeTimer = null;
+      }
+      challengeTimeRemaining = 0;
+      timerWrap.style.display = 'none';
+      timerEl.textContent = formatTime(CHALLENGE_SECONDS);
+    }
+    function updateTimerDisplay(){
+      timerEl.textContent = formatTime(challengeTimeRemaining);
+    }
+    function formatTime(sec){
+      const m = Math.floor(sec/60);
+      const s = sec % 60;
+      return `${m}:${s.toString().padStart(2,'0')}`;
+    }
+
+    function handleChallengeTimeout(){
+      // mark challenge attempt as failed and disable checking until retry
+      explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Challenge</div><div class="step-list"><strong style="color:var(--bad)">Time's up.</strong> You can retry the challenge to try another 5-digit problem.</div>`;
+      explainBox.hidden = false;
+
+      // finalize as failed (record it)
+      if(state.current && !state.current.finalized){
+        state.current.lastAttempt = state.current.lastAttempt || { userDigitsRaw: Array(state.digits+1).fill(''), carryInputs: Array(state.digits+1).fill(''), correct:false, timestamp:new Date().toISOString() };
+        finalizeCurrentProblem(false);
+      }
+
+      // allow retry
+      retryBtn.style.display = 'inline-flex';
+      // disable check until retry
+      checkBtn.disabled = true;
+      // keep inChallenge true until user retries or clicks Next
+      // allow download (proof) for this single attempt
+      downloadBtn.disabled = false;
+    }
+
+    // start a challenge: single 5-digit problem, forced regroup, 45s timer
+    function startChallenge(){
+      // set challenge flag
+      state.inChallenge = true;
+      modeLabel.textContent = 'Challenge';
+      // temporarily lock digits select (challenge always uses 5)
+      digitsSelect.disabled = true;
+
+      // prepare one 5-digit forced-regroup problem
+      state.digits = 5;
+      state.current = null;
+      const pair = makeAddends(5);
+      state.a = pair.a;
+      state.b = pair.b;
+      state.asked++;
+      askedEl.textContent = state.asked;
+
+      // session total becomes 1 for UI/behavior during challenge
+      state.sessionTotal = 1;
+
+      renderProblem();
+      saveStateToLocalStorage();
+
+      // start timer
+      startChallengeTimer();
+
+      // ensure retry hidden until needed
+      retryBtn.style.display = 'none';
+      // keep Next disabled while challenge active
+      newBtn.disabled = true;
+      // disable download until finalize
+      downloadBtn.disabled = true;
+    }
+
+    // stop challenge mode and return to practice configuration
+    function stopChallengeMode(){
+      state.inChallenge = false;
+      modeLabel.textContent = 'Practice';
+      digitsSelect.disabled = false;
+      state.sessionTotal = 10;
+      stopChallengeTimer();
+
+      // restore download button state based on solved total
+      downloadBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
+    }
+
+    //
+    // UI wiring and helpers (newProblem, event hookups)
+    //
+    function newProblem(){
+      // If currently in challenge mode, starting a new problem means the user is exiting challenge
+      if(state.inChallenge){
+        stopChallengeMode();
+      }
+
+      // Regular new problem uses digitsSelect (3 or 4)
+      state.digits = Number(digitsSelect.value) || 3;
+      state.current = null;
+
+      const pair = makeAddends(state.digits);
+      state.a = pair.a;
+      state.b = pair.b;
+      state.asked++;
+      askedEl.textContent = state.asked;
+
+      renderProblem();
+      saveStateToLocalStorage();
+      // Next should remain disabled until the new problem is completed
+      newBtn.disabled = true;
+    }
+
+    // Wire controls
+    newBtn.addEventListener('click', newProblem);
+    checkBtn.addEventListener('click', checkAnswer);
+    explainBtn.addEventListener('click', showExplanation);
+    retryBtn.addEventListener('click', () => {
+      // Retry challenge: generate new challenge problem and restart timer
+      startChallenge();
+    });
+    newLessonBtnTop.addEventListener('click', startNewLesson);
+    downloadBtn.addEventListener('click', downloadSolvedPDF);
+    startChallengeBtn.addEventListener('click', () => {
+      // explicit user-initiated challenge start
+      startChallenge();
+    });
+
+    digitsSelect.addEventListener('change', () => {
+      if(!state.inChallenge){
+        state.digits = Number(digitsSelect.value) || 3;
+        renderProblem();
+      }
+    });
+
+    // keyboard: Enter on page triggers check when focused on non-inputs (conservative)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && document.activeElement && document.activeElement.tagName !== 'INPUT') {
+        checkAnswer();
+      }
+    });
+
+    // Initialize
+    (function init(){
+      loadStateFromLocalStorage();
+      // Ensure sessionTotal is fixed unless in challenge
+      state.sessionTotal = 10;
+
+      // If no saved problem, generate one
+      if (typeof state.a !== 'number' || typeof state.b !== 'number') {
+        state.digits = Number(digitsSelect.value) || 3;
+        newProblem();
+      } else {
+        // ensure UI reflects state
+        renderProblem();
+      }
+      updateProgress();
+
+      // Ensure Next is disabled until the first problem is completed
+      newBtn.disabled = true;
+      timerEl.textContent = formatTime(CHALLENGE_SECONDS);
+    })();
+
+  </script>
+</body>
+</html>
