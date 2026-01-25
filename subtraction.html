@@ -107,6 +107,19 @@
     .digit-cell{
       padding:8px 6px; font-size:28px; color:#e6eef6; background:transparent; border:1px solid transparent;
       min-height:44px; display:flex; align-items:center; justify-content:center;
+      position:relative; flex-direction:column;
+    }
+    
+    /* Borrowing visualization */
+    .digit-cell .crossed-out{
+      text-decoration:line-through; text-decoration-color:rgba(239,68,68,0.6); 
+      text-decoration-thickness:2px; font-size:20px; color:rgba(230,238,246,0.4);
+    }
+    .digit-cell .borrowed-prefix{
+      font-size:16px; color:var(--accent); font-weight:700; margin-right:2px;
+    }
+    .digit-cell .regrouped-value{
+      display:flex; align-items:center; justify-content:center; font-size:28px;
     }
 
     .carry-input{
@@ -584,11 +597,13 @@
           carryInput.setAttribute('aria-label','borrow for column '+(j+1));
           carryInput.addEventListener('input', e => {
             e.target.value = e.target.value.replace(/\D/g, '').slice(0,1);
+            updateBorrowVisualization();
           });
           carryInput.addEventListener('paste', e => {
             e.preventDefault();
             const text = (e.clipboardData || window.clipboardData).getData('text');
             carryInput.value = (text.match(/\d/) || [''])[0];
+            updateBorrowVisualization();
           });
           carryRow.appendChild(carryInput);
         }
@@ -601,8 +616,18 @@
         const pow = Math.pow(10,i);
         const da = Math.floor(a/pow)%10;
         const db = Math.floor(b/pow)%10;
-        const cellA = document.createElement('div'); cellA.className='digit-cell'; cellA.textContent=da;
-        const cellB = document.createElement('div'); cellB.className='digit-cell'; cellB.textContent=db;
+        
+        // Minuend cell with borrowing visualization support
+        const cellA = document.createElement('div'); 
+        cellA.className='digit-cell';
+        cellA.dataset.originalDigit = da;
+        cellA.dataset.columnIndex = i;
+        cellA.innerHTML = `<span class="digit-display">${da}</span>`;
+        
+        const cellB = document.createElement('div'); 
+        cellB.className='digit-cell'; 
+        cellB.textContent=db;
+        
         addendRowA.appendChild(cellA);
         addendRowB.appendChild(cellB);
       }
@@ -647,6 +672,61 @@
 
       // render ten-frames for the current problem (new helper)
       renderTenFrameHelper();
+    }
+
+    // Update the visual display of minuend digits when borrows are entered
+    function updateBorrowVisualization() {
+      const borrowInputs = Array.from(carryRow.querySelectorAll('input'));
+      const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
+      
+      // Because of row-reverse, cells are in visual order: ones, tens, hundreds
+      // borrowInputs[0] is placeholder (leftmost visually)
+      // borrowInputs[1] corresponds to column 0 (ones place)
+      // borrowInputs[2] corresponds to column 1 (tens place), etc.
+      
+      // Update each minuend cell based on borrowing
+      minuendCells.forEach((cell, visualIdx) => {
+        const originalDigit = cell.dataset.originalDigit;
+        const columnIndex = parseInt(cell.dataset.columnIndex); // actual place value index
+        
+        // Check if this column has a borrow entered (borrowInputs[columnIndex + 1])
+        const borrowInputIdx = columnIndex + 1;
+        const hasBorrow = borrowInputIdx < borrowInputs.length && 
+                         borrowInputs[borrowInputIdx].value === '1';
+        
+        // Check if next column borrowed from this one
+        const nextColumnBorrowIdx = columnIndex + 2; // next column's borrow input
+        const wasBorrowedFrom = nextColumnBorrowIdx < borrowInputs.length && 
+                                borrowInputs[nextColumnBorrowIdx].value === '1';
+        
+        if (wasBorrowedFrom && hasBorrow) {
+          // Both borrowed from AND borrowed to: show crossed out original, and regrouped value
+          const reducedDigit = parseInt(originalDigit) - 1;
+          cell.innerHTML = `
+            <span class="crossed-out">${originalDigit}</span>
+            <div class="regrouped-value">
+              <span class="borrowed-prefix">1</span>${reducedDigit}
+            </div>
+          `;
+        } else if (wasBorrowedFrom) {
+          // Only borrowed from: show crossed out original and reduced digit
+          const reducedDigit = parseInt(originalDigit) - 1;
+          cell.innerHTML = `
+            <span class="crossed-out">${originalDigit}</span>
+            <span class="digit-display">${reducedDigit}</span>
+          `;
+        } else if (hasBorrow) {
+          // Only borrowed to: show small "1" prefix with original digit
+          cell.innerHTML = `
+            <div class="regrouped-value">
+              <span class="borrowed-prefix">1</span>${originalDigit}
+            </div>
+          `;
+        } else {
+          // No borrowing: show original digit
+          cell.innerHTML = `<span class="digit-display">${originalDigit}</span>`;
+        }
+      });
     }
 
     function handleKeyNav(e){
