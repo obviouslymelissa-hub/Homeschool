@@ -398,14 +398,14 @@
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          state.asked = parsed.asked || 0;
-          state.correct = parsed.correct || 0;
-          state.streak = parsed.streak || 0;
-          state.sessionTotal = parsed.sessionTotal || 10;
-          state.sessionDone = parsed.sessionDone || 0;
-          state.solved = parsed.solved || [];
-          state.digits = parsed.digits || 3;
-          state.willForce = parsed.willForce || 'either';
+          state.asked = parsed.asked ?? 0;
+          state.correct = parsed.correct ?? 0;
+          state.streak = parsed.streak ?? 0;
+          state.sessionTotal = parsed.sessionTotal ?? 10;
+          state.sessionDone = parsed.sessionDone ?? 0;
+          state.solved = parsed.solved ?? [];
+          state.digits = parsed.digits ?? 3;
+          state.willForce = parsed.willForce ?? 'either';
           
           // Update UI elements
           askedEl.textContent = state.asked;
@@ -435,7 +435,7 @@
 
     // Clear localStorage and reset session
     function startNewLesson() {
-      if (state.solved.length > 0) {
+      if (state.asked > 0) {
         const confirmed = confirm('Are you sure you want to start a new lesson? This will clear all saved progress from the current session.');
         if (!confirmed) return;
       }
@@ -1056,13 +1056,8 @@
     // Try to load saved session first
     const loadedFromStorage = loadStateFromLocalStorage();
     updateProgress();
-    // Start with an initial problem (or continue with loaded state)
-    if (!loadedFromStorage || state.solved.length === 0) {
-      newProblem();
-    } else {
-      // If we loaded state, still generate a new problem to continue
-      newProblem();
-    }
+    // Always generate a new problem to start or continue
+    newProblem();
   </script>
 </body>
 </html>
