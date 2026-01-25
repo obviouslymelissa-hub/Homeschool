@@ -370,7 +370,7 @@
         { text: 'the boy went to school.', answer: 'The boy went to school.', error: 'First word' },
         { text: 'i like to play outside.', answer: 'I like to play outside.', error: 'Pronoun "I"' },
         { text: 'sarah is my best friend.', answer: 'Sarah is my best friend.', error: 'Person\'s name' },
-        { text: 'we visit grandma on sunday.', answer: 'We visit Grandma on Sunday.', error: 'Day of week' },
+        { text: 'we go to the park on sunday.', answer: 'We go to the park on Sunday.', error: 'Day of week' },
         { text: 'my birthday is in july.', answer: 'My birthday is in July.', error: 'Month name' },
         { text: 'we live in new york.', answer: 'We live in New York.', error: 'Place name' },
         { text: 'mr. johnson teaches us math.', answer: 'Mr. Johnson teaches us math.', error: 'Name & title' }
@@ -675,11 +675,13 @@
       }
 
       const isCorrect = state.userAnswer.trim() === state.currentExercise.answer.trim();
+      
+      // Always increment session done for progress tracking
+      state.sessionDone++;
 
       if (isCorrect) {
         state.correct++;
         state.streak++;
-        state.sessionDone++;
         feedback.textContent = '✓ Correct! Great job!';
         feedback.classList.add('show', 'correct');
       } else {
