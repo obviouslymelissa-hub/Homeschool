@@ -199,6 +199,13 @@
     .tf-caption { margin-top:6px; font-size:13px; color:var(--muted); }
     .tenframe:focus { outline:2px solid rgba(34,211,238,0.12); border-radius:8px; }
 
+    /* timer */
+    .timer-badge{
+      background:rgba(255,255,255,0.03);
+      padding:6px 10px;border-radius:8px;font-weight:700;color:var(--accent);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    }
+
     /* top settings area */
     .controls-top { margin-top:12px; display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
     .controls-top .card{ padding:12px; display:flex; flex-direction:column; gap:8px; width:100%; }
@@ -232,10 +239,18 @@
         <div class="row" style="width:100%">
           <label for="digits" style="flex:0 0 160px">Digits per addend</label>
           <select id="digits" title="Select number of digits" style="flex:1">
-            <!-- only 3 and 4 allowed -->
+            <!-- only 3 and 4 allowed for normal practice -->
             <option value="3" selected>3 digits (e.g., 248 + 167)</option>
-            <option value="4">4 digits (challenge)</option>
+            <option value="4">4 digits (thousands)</option>
           </select>
+        </div>
+
+        <div class="row" style="width:100%">
+          <label style="flex:0 0 160px">Mastery challenge</label>
+          <div style="flex:1;color:var(--muted);font-size:13px;padding:8px;border-radius:6px;background:var(--glass)">
+            Ready for a quick check? Press "Start Challenge" to try one 5‑digit regroup problem with a 45 second timer. Pass to show mastery.
+          </div>
+          <button id="startChallengeBtn" class="btn tiny" title="Start the 45s mastery challenge" style="margin-left:8px">Start Challenge</button>
         </div>
 
         <div class="stats" style="margin-top:6px">
@@ -305,7 +320,13 @@
               <button id="newBtn" class="btn tiny" title="Next problem" disabled>Next problem</button>
               <button id="checkBtn" class="btn ghost tiny" title="Check answer">Check</button>
               <button id="explainBtn" class="btn ghost tiny" title="Show step-by-step">Explain</button>
+
+              <!-- timer / retry area -->
               <div style="flex:1"></div>
+              <div id="timerWrap" style="display:none;align-items:center;gap:8px">
+                <div class="timer-badge" id="timer">0:45</div>
+                <button id="retryBtn" class="btn ghost tiny" style="display:none">Retry</button>
+              </div>
             </div>
 
           </div>
@@ -336,12 +357,15 @@
   <script>
     // DOM refs
     const digitsSelect = document.getElementById('digits');
-    const modeSelect = document.getElementById('mode');
+    const startChallengeBtn = document.getElementById('startChallengeBtn');
     const modeLabel = document.getElementById('modeLabel');
 
     const newBtn = document.getElementById('newBtn'); // Next problem
     const checkBtn = document.getElementById('checkBtn');
     const explainBtn = document.getElementById('explainBtn');
+    const retryBtn = document.getElementById('retryBtn');
+    const timerWrap = document.getElementById('timerWrap');
+    const timerEl = document.getElementById('timer');
     const newLessonBtnTop = document.getElementById('newLessonBtnTop');
 
     const carryRow = document.getElementById('carryRow');
@@ -367,15 +391,20 @@
       a: null,
       b: null,
       digits: 3,
-      // always force regrouping:
-      asked: 0,          // unique problems generated
+      asked: 0,
       correct: 0,
       streak: 0,
-      sessionTotal: 10,  // fixed target
-      sessionDone: 0,    // finalized problems count
-      solved: [],        // finalized problems list
-      current: null      // current problem tracker
+      sessionTotal: 10,  // fixed for practice
+      sessionDone: 0,
+      solved: [],
+      current: null,
+      inChallenge: false
     };
+
+    // Challenge timer state
+    let challengeTimer = null;
+    let challengeTimeRemaining = 0; // seconds
+    const CHALLENGE_SECONDS = 45;
 
     // LocalStorage key for persistence
     const STORAGE_KEY = 'addition_session_state';
@@ -421,6 +450,7 @@
           if (state.solved.length > 0) {
             renderSolvedList();
             solvedCard.hidden = false;
+            // allow download if either threshold met or (if a challenge is active) handled elsewhere
             downloadBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
           }
 
@@ -453,6 +483,7 @@
       state.sessionDone = 0;
       state.solved = [];
       state.current = null;
+      state.inChallenge = false;
 
       // Update UI
       askedEl.textContent = state.asked;
@@ -463,13 +494,17 @@
       downloadBtn.disabled = true;
       updateProgress();
 
+      // Ensure mode returns to practice
+      modeLabel.textContent = 'Practice';
+      digitsSelect.disabled = false;
+
       // Generate first problem
       newProblem();
     }
 
     function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
 
-    // makeAddends always forces at least one regroup (force 'yes')
+    // makeAddends always forces at least one regroup
     function makeAddends(digits){
       while(true){
         const max = Math.pow(10,digits)-1;
@@ -573,8 +608,13 @@
       problemHint.textContent = `Add ${state.a} and ${state.b}. Rightmost box is ones.`;
       explainBox.hidden = true;
 
-      // Disable Next until the current problem has been completed successfully
+      // Disable Next while this problem is active (will enable after finalize)
       newBtn.disabled = true;
+
+      // Ensure check/Explain enabled (unless challenge times out)
+      checkBtn.disabled = false;
+      explainBtn.disabled = false;
+      retryBtn.style.display = 'none';
 
       setTimeout(() => {
         const inputs = sumRow.querySelectorAll('input');
@@ -623,6 +663,9 @@
     }
 
     function checkAnswer(){
+      // If challenge timer ran out, ignore checks
+      if (state.inChallenge && challengeTimeRemaining <= 0) return;
+
       const user = getUserDigits();
       const userRaw = getUserDigitsRaw();
       const expected = computeSumArrayFor(state.a, state.b, state.digits);
@@ -652,6 +695,13 @@
         correctEl.textContent = state.correct;
         streakEl.textContent = state.streak;
         confetti();
+
+        // If in challenge, stop timer and mark success
+        if(state.inChallenge){
+          stopChallengeTimer();
+          explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Challenge</div><div class="step-list"><strong style="color:var(--good)">Passed!</strong> You solved the 5-digit regroup problem within the time limit.</div>`;
+          explainBox.hidden = false;
+        }
       } else {
         flashProblem('Not quite — press "Explain" for a guided step-by-step.', false);
         state.streak = 0;
@@ -702,7 +752,7 @@
         const sum = da + db + carry;
         const digit = sum % 10;
         const newCarry = Math.floor(sum/10);
-        const placeName = i===0 ? "ones" : i===1 ? "tens" : i===2 ? "hundreds" : `${i+1}-place`;
+        const placeName = i===0 ? "ones" : i===1 ? "tens" : i===2 ? "hundreds" : i===3 ? "thousands" : `${i+1}-place`;
         steps.push(`Add the ${placeName}: ${da} + ${db}` + (carry?` + carry ${carry}`:'') + (newCarry?` and remember to carry ${newCarry}.`:`.`));
         carry = newCarry;
       }
@@ -783,7 +833,7 @@
       const pct = Math.min(100, Math.round((done/total)*100));
       progBar.style.width = pct + '%';
       sessionInfo.textContent = `Session: ${done} / ${total} done.`;
-      if(done >= total){
+      if(done >= total && !state.inChallenge){
         setTimeout(()=>{ alert(`Session complete! Problems asked: ${state.asked}. Correct: ${state.correct}.`); }, 300);
       }
     }
@@ -815,13 +865,18 @@
       renderSolvedList();
 
       solvedCard.hidden = false;
-      downloadBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
+      // enable download if either we have enough solved problems OR we are in a challenge (single proof)
+      downloadBtn.disabled = !(state.solved.length >= DOWNLOAD_THRESHOLD || state.inChallenge);
 
       // Save to localStorage after finalizing
       saveStateToLocalStorage();
 
-      // Enable Next problem button only after the problem is finalized (completed successfully)
-      newBtn.disabled = false;
+      // Enable Next problem button only after the problem is finalized
+      newBtn.disabled = true; // keep Next disabled while inChallenge; allow after leaving challenge via newProblem
+      // If not in challenge, allow Next to be used after a short delay
+      if(!state.inChallenge){
+        setTimeout(()=>{ newBtn.disabled = false; }, 300);
+      }
     }
 
     function renderSolvedList(){
@@ -1005,19 +1060,21 @@
         return;
       }
 
-      // Show a frame pair only for the places in use (ones.. up to digits-1)
+      // Show a frame pair only for the places in use
       for (let col = 0; col < state.digits; col++) {
         const frameRow = document.createElement('div');
         frameRow.className = 'tenframe';
         frameRow.tabIndex = 0;
         frameRow.setAttribute('role', 'button');
-        frameRow.setAttribute('aria-label', `Ten-frames for ${col === 0 ? 'ones' : col === 1 ? 'tens' : col === 2 ? 'hundreds' : (col+1)+'-place'}`);
+
+        // place label mapping (include thousands for 4th place)
+        const labelText = col === 0 ? 'Ones' : col === 1 ? 'Tens' : col === 2 ? 'Hundreds' : col === 3 ? 'Thousands' : (col+1)+'-place';
+        frameRow.setAttribute('aria-label', `Ten-frames for ${labelText.toLowerCase()}`);
 
         const label = document.createElement('div');
         label.className = 'tenframe-label';
-        label.textContent = col === 0 ? 'Ones' : col === 1 ? 'Tens' : col === 2 ? 'Hundreds' : (col+1)+'-place';
+        label.textContent = labelText;
 
-        // right column: pair + caption stacked vertically to avoid overlapping main column
         const rightCol = document.createElement('div');
         rightCol.style.display = 'flex';
         rightCol.style.flexDirection = 'column';
@@ -1099,17 +1156,14 @@
       const db = Math.floor(state.b / pow) % 10;
 
       // Decide anchor: pick the larger addend for the stable visual (so big group sits in first frame)
-      // If equal, prefer A as anchor.
       let anchor = da;
       let other = db;
 
-      // If B is larger, swap so first frame shows B in gold and A in blue to keep consistent visual
       if (db > da) {
         anchor = db;
         other = da;
       }
 
-      // toTen = how many from 'other' are needed to complete ten for the anchor
       const toTen = Math.max(0, 10 - anchor);
       const moved = Math.min(toTen, other);
       const remainder = Math.max(0, other - moved);
@@ -1134,14 +1188,13 @@
       // After animation, show a short descriptive caption in the explain area (no final numeric answer)
       const finalDelay = Math.max(500, (anchor + moved + remainder) * 55 + 220);
       setTimeout(() => {
-        const placeName = col === 0 ? 'ones' : col === 1 ? 'tens' : col === 2 ? 'hundreds' : `${col+1}-place`;
+        const placeName = col === 0 ? 'ones' : col === 1 ? 'tens' : col === 2 ? 'hundreds' : col === 3 ? 'thousands' : `${col+1}-place`;
         const lines = [];
         lines.push(`Looking at the ${placeName} column: the larger group (${anchor}) is shown in gold in the top block.`);
         if (moved > 0) lines.push(`We moved ${moved} from the other addend (blue) to complete the ten in the top block.`);
         if (remainder > 0) lines.push(`The remaining ${remainder} (blue) are shown in the bottom block.`);
         if (moved === 0) lines.push(`No counters needed to complete a ten from the other addend; the bottom block shows the other addend's counters when present.`);
 
-        // Explain text intentionally avoids giving the final written digit or carry; it's a visual scaffold.
         explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Ten-frames — ${placeName}</div><ol class="step-list">${lines.map(s => `<li>${s}</li>`).join('')}</ol>`;
         explainBox.hidden = false;
 
@@ -1150,10 +1203,116 @@
     }
 
     //
+    // Challenge timer helpers
+    //
+    function startChallengeTimer(){
+      stopChallengeTimer();
+      challengeTimeRemaining = CHALLENGE_SECONDS;
+      timerWrap.style.display = 'flex';
+      updateTimerDisplay();
+      challengeTimer = setInterval(() => {
+        challengeTimeRemaining--;
+        updateTimerDisplay();
+        if(challengeTimeRemaining <= 0){
+          stopChallengeTimer();
+          handleChallengeTimeout();
+        }
+      }, 1000);
+    }
+    function stopChallengeTimer(){
+      if(challengeTimer) {
+        clearInterval(challengeTimer);
+        challengeTimer = null;
+      }
+      challengeTimeRemaining = 0;
+      timerWrap.style.display = 'none';
+      timerEl.textContent = formatTime(CHALLENGE_SECONDS);
+    }
+    function updateTimerDisplay(){
+      timerEl.textContent = formatTime(challengeTimeRemaining);
+    }
+    function formatTime(sec){
+      const m = Math.floor(sec/60);
+      const s = sec % 60;
+      return `${m}:${s.toString().padStart(2,'0')}`;
+    }
+
+    function handleChallengeTimeout(){
+      // mark challenge attempt as failed and disable checking until retry
+      explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Challenge</div><div class="step-list"><strong style="color:var(--bad)">Time's up.</strong> You can retry the challenge to try another 5-digit problem.</div>`;
+      explainBox.hidden = false;
+
+      // finalize as failed (record it)
+      if(state.current && !state.current.finalized){
+        state.current.lastAttempt = state.current.lastAttempt || { userDigitsRaw: Array(state.digits+1).fill(''), carryInputs: Array(state.digits+1).fill(''), correct:false, timestamp:new Date().toISOString() };
+        finalizeCurrentProblem(false);
+      }
+
+      // allow retry
+      retryBtn.style.display = 'inline-flex';
+      // disable check until retry
+      checkBtn.disabled = true;
+      // keep inChallenge true until user retries or clicks Next (we'll let them decide)
+      // ensure download button is enabled to allow proof of this single attempt
+      downloadBtn.disabled = false;
+    }
+
+    // start a challenge: single 5-digit problem, forced regroup, 45s timer
+    function startChallenge(){
+      // set challenge flag
+      state.inChallenge = true;
+      modeLabel.textContent = 'Challenge';
+      // temporarily lock digits select (challenge always uses 5)
+      digitsSelect.disabled = true;
+
+      // prepare one 5-digit forced-regroup problem
+      state.digits = 5;
+      state.current = null;
+      const pair = makeAddends(5);
+      state.a = pair.a;
+      state.b = pair.b;
+      state.asked++;
+      askedEl.textContent = state.asked;
+
+      // session total becomes 1 for UI/behavior during challenge
+      state.sessionTotal = 1;
+
+      renderProblem();
+      saveStateToLocalStorage();
+
+      // start timer
+      startChallengeTimer();
+
+      // ensure retry hidden until needed
+      retryBtn.style.display = 'none';
+      // keep Next disabled while challenge active
+      newBtn.disabled = true;
+      // enable download only after finalize or immediate (allow proof after finish)
+      downloadBtn.disabled = true;
+    }
+
+    // stop challenge mode and return to practice configuration
+    function stopChallengeMode(){
+      state.inChallenge = false;
+      modeLabel.textContent = 'Practice';
+      digitsSelect.disabled = false;
+      state.sessionTotal = 10;
+      stopChallengeTimer();
+
+      // restore download button state based on solved total
+      downloadBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
+    }
+
+    //
     // UI wiring and helpers (newProblem, event hookups)
     //
     function newProblem(){
-      // When user clicks Next, generate a new forced-regroup problem and immediately disable Next until it's completed again
+      // If currently in challenge mode, starting a new problem means the user is exiting challenge
+      if(state.inChallenge){
+        stopChallengeMode();
+      }
+
+      // Regular new problem uses digitsSelect (3 or 4)
       state.digits = Number(digitsSelect.value) || 3;
       state.current = null;
 
@@ -1173,15 +1332,22 @@
     newBtn.addEventListener('click', newProblem);
     checkBtn.addEventListener('click', checkAnswer);
     explainBtn.addEventListener('click', showExplanation);
+    retryBtn.addEventListener('click', () => {
+      // Retry challenge: generate new challenge problem and restart timer
+      startChallenge();
+    });
     newLessonBtnTop.addEventListener('click', startNewLesson);
     downloadBtn.addEventListener('click', downloadSolvedPDF);
+    startChallengeBtn.addEventListener('click', () => {
+      // explicit user-initiated challenge start
+      startChallenge();
+    });
 
     digitsSelect.addEventListener('change', () => {
-      state.digits = Number(digitsSelect.value) || 3;
-      renderProblem();
-    });
-    modeSelect.addEventListener('change', () => {
-      modeLabel.textContent = modeSelect.value === 'practice' ? 'Practice' : 'Challenge';
+      if(!state.inChallenge){
+        state.digits = Number(digitsSelect.value) || 3;
+        renderProblem();
+      }
     });
 
     // keyboard: Enter on page triggers check when focused on non-inputs (conservative)
@@ -1194,7 +1360,7 @@
     // Initialize
     (function init(){
       loadStateFromLocalStorage();
-      // Ensure sessionTotal is fixed
+      // Ensure sessionTotal is fixed unless in challenge
       state.sessionTotal = 10;
 
       // If no saved problem, generate one
@@ -1209,6 +1375,7 @@
 
       // Ensure Next is disabled until the first problem is completed
       newBtn.disabled = true;
+      timerEl.textContent = formatTime(CHALLENGE_SECONDS);
     })();
 
   </script>
