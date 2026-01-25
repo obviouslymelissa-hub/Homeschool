@@ -230,6 +230,31 @@
       border-left:3px solid var(--accent);
     }
 
+    /* Completion badges */
+    .completion-badge{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      background:rgba(255,255,255,0.03);
+      border:1px solid rgba(255,255,255,0.05);
+      border-radius:6px;
+      font-size:13px;
+      color:var(--muted);
+    }
+    .completion-badge.completed{
+      background:rgba(22,163,74,0.1);
+      border-color:rgba(22,163,74,0.18);
+      color:var(--good);
+    }
+    .badge-icon{
+      font-size:16px;
+      font-weight:700;
+    }
+    .completion-badge.completed .badge-icon{
+      color:var(--good);
+    }
+
     /* Responsive */
     @media (max-width:860px){
       .layout{grid-template-columns:1fr; }
@@ -251,11 +276,28 @@
       <h3 id="lesson-settings-heading" style="margin:0 0 12px">Lesson settings</h3>
 
       <div class="exercise-type-selector">
-        <button class="exercise-type-btn active" data-type="word-order">Word Order</button>
-        <button class="exercise-type-btn" data-type="capitalization">Capitalization</button>
+        <button class="exercise-type-btn active" data-type="capitalization">Capitalization</button>
         <button class="exercise-type-btn" data-type="punctuation">Punctuation</button>
         <button class="exercise-type-btn" data-type="complete-sentence">Complete Sentences</button>
         <button class="exercise-type-btn" data-type="paragraph">Build a Paragraph</button>
+      </div>
+
+      <div style="margin-top:12px;padding:12px;background:rgba(255,255,255,0.02);border-radius:8px;">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Lesson Progress: Complete one of each exercise type</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <div class="completion-badge" id="badge-capitalization">
+            <span class="badge-icon">○</span> Capitalization
+          </div>
+          <div class="completion-badge" id="badge-punctuation">
+            <span class="badge-icon">○</span> Punctuation
+          </div>
+          <div class="completion-badge" id="badge-complete-sentence">
+            <span class="badge-icon">○</span> Complete Sentences
+          </div>
+          <div class="completion-badge" id="badge-paragraph">
+            <span class="badge-icon">○</span> Paragraph
+          </div>
+        </div>
       </div>
 
       <div class="stats">
@@ -264,12 +306,9 @@
         <div class="stat">Streak: <strong id="streak">0</strong></div>
       </div>
 
-      <div style="width:100%; margin-top:8px">
-        <div class="progress" aria-hidden="true" style="margin-bottom:6px"><i id="progBar"></i></div>
-        <div id="sessionInfo" class="hint">Session: 0 / 10 done.</div>
-      </div>
-
       <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+        <button id="downloadBtn" class="btn tiny" disabled title="Complete all exercise types to download">Download Answers</button>
+        <div style="flex:1"></div>
         <button id="newLessonBtn" class="btn ghost tiny">Start New Lesson</button>
       </div>
     </div>
@@ -344,28 +383,23 @@
   <script>
     // State
     let state = {
-      exerciseType: 'word-order',
+      exerciseType: 'capitalization',
       asked: 0,
       correct: 0,
       streak: 0,
-      sessionTotal: 10,
-      sessionDone: 0,
       currentExercise: null,
-      userAnswer: null
+      userAnswer: null,
+      completedTypes: {
+        'capitalization': false,
+        'punctuation': false,
+        'complete-sentence': false,
+        'paragraph': false
+      },
+      completedExercises: []
     };
 
     // Exercise data for different types
     const exercises = {
-      'word-order': [
-        { words: ['The', 'dog', 'played', 'outside', '.'], answer: 'The dog played outside.' },
-        { words: ['I', 'love', 'reading', 'books', '.'], answer: 'I love reading books.' },
-        { words: ['She', 'went', 'to', 'the', 'park', '.'], answer: 'She went to the park.' },
-        { words: ['My', 'friend', 'likes', 'ice', 'cream', '.'], answer: 'My friend likes ice cream.' },
-        { words: ['The', 'cat', 'sleeps', 'on', 'the', 'bed', '.'], answer: 'The cat sleeps on the bed.' },
-        { words: ['We', 'play', 'soccer', 'every', 'day', '.'], answer: 'We play soccer every day.' },
-        { words: ['Birds', 'fly', 'in', 'the', 'sky', '.'], answer: 'Birds fly in the sky.' },
-        { words: ['Mom', 'bakes', 'cookies', 'for', 'us', '.'], answer: 'Mom bakes cookies for us.' }
-      ],
       'capitalization': [
         { text: 'the boy went to school.', answer: 'The boy went to school.', error: 'First word' },
         { text: 'i like to play outside.', answer: 'I like to play outside.', error: 'Pronoun "I"' },
@@ -428,11 +462,10 @@
     const nextBtn = document.getElementById('nextBtn');
     const showAnswerBtn = document.getElementById('showAnswerBtn');
     const newLessonBtn = document.getElementById('newLessonBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
     const askedEl = document.getElementById('asked');
     const correctEl = document.getElementById('correct');
     const streakEl = document.getElementById('streak');
-    const progBar = document.getElementById('progBar');
-    const sessionInfo = document.getElementById('sessionInfo');
 
     // Event listeners
     typeButtons.forEach(btn => {
@@ -448,6 +481,7 @@
     nextBtn.addEventListener('click', generateExercise);
     showAnswerBtn.addEventListener('click', showAnswer);
     newLessonBtn.addEventListener('click', resetSession);
+    downloadBtn.addEventListener('click', downloadAnswers);
 
     // Generate exercise based on type
     function generateExercise() {
@@ -467,9 +501,6 @@
       sentenceArea.innerHTML = '';
 
       switch(state.exerciseType) {
-        case 'word-order':
-          generateWordOrderExercise();
-          break;
         case 'capitalization':
           generateCapitalizationExercise();
           break;
@@ -486,57 +517,6 @@
 
       state.asked++;
       updateStats();
-    }
-
-    function generateWordOrderExercise() {
-      instruction.textContent = 'Put the words in the correct order to make a sentence. Click the words in order.';
-      
-      const shuffled = [...state.currentExercise.words].sort(() => Math.random() - 0.5);
-      const wordBank = document.createElement('div');
-      wordBank.className = 'word-bank';
-      
-      const userSentence = document.createElement('div');
-      userSentence.id = 'userSentence';
-      userSentence.style.minHeight = '40px';
-      userSentence.style.padding = '12px';
-      userSentence.style.background = 'rgba(255,255,255,0.03)';
-      userSentence.style.borderRadius = '8px';
-      userSentence.style.marginBottom = '12px';
-      userSentence.style.fontSize = '18px';
-      
-      const selectedWords = [];
-      
-      shuffled.forEach((word, idx) => {
-        const chip = document.createElement('div');
-        chip.className = 'word-chip';
-        chip.textContent = word;
-        chip.dataset.index = idx;
-        
-        chip.addEventListener('click', () => {
-          if (chip.classList.contains('used')) return;
-          chip.classList.add('used');
-          selectedWords.push(word);
-          userSentence.textContent = selectedWords.join(' ');
-          state.userAnswer = selectedWords.join(' ');
-        });
-        
-        wordBank.appendChild(chip);
-      });
-      
-      sentenceArea.appendChild(userSentence);
-      sentenceArea.appendChild(wordBank);
-      
-      const resetBtn = document.createElement('button');
-      resetBtn.textContent = 'Reset';
-      resetBtn.className = 'btn ghost tiny';
-      resetBtn.style.marginTop = '8px';
-      resetBtn.addEventListener('click', () => {
-        selectedWords.length = 0;
-        userSentence.textContent = '';
-        state.userAnswer = null;
-        wordBank.querySelectorAll('.word-chip').forEach(c => c.classList.remove('used'));
-      });
-      sentenceArea.appendChild(resetBtn);
     }
 
     function generateCapitalizationExercise() {
@@ -684,6 +664,20 @@
         state.streak++;
         feedback.textContent = '✓ Correct! Great job!';
         feedback.classList.add('show', 'correct');
+        
+        // Mark this exercise type as completed
+        if (!state.completedTypes[state.exerciseType]) {
+          state.completedTypes[state.exerciseType] = true;
+          updateCompletionBadges();
+        }
+        
+        // Store the completed exercise
+        state.completedExercises.push({
+          type: state.exerciseType,
+          question: getExerciseQuestion(),
+          answer: state.currentExercise.answer,
+          userAnswer: state.userAnswer
+        });
       } else {
         state.streak = 0;
         feedback.textContent = `✗ Not quite right. The correct answer is: "${state.currentExercise.answer}"`;
@@ -692,6 +686,43 @@
 
       checkBtn.disabled = true;
       updateStats();
+    }
+    
+    function getExerciseQuestion() {
+      switch(state.exerciseType) {
+        case 'capitalization':
+          return state.currentExercise.text;
+        case 'punctuation':
+          return state.currentExercise.text;
+        case 'complete-sentence':
+          return state.currentExercise.fragments.join(' + ');
+        case 'paragraph':
+          return state.currentExercise.sentences.join(' | ');
+        default:
+          return '';
+      }
+    }
+    
+    function updateCompletionBadges() {
+      Object.keys(state.completedTypes).forEach(type => {
+        const badge = document.getElementById(`badge-${type}`);
+        if (badge && state.completedTypes[type]) {
+          badge.classList.add('completed');
+          badge.querySelector('.badge-icon').textContent = '✓';
+        }
+      });
+      
+      // Check if all types are completed
+      const allCompleted = Object.values(state.completedTypes).every(v => v);
+      if (allCompleted) {
+        downloadBtn.disabled = false;
+        downloadBtn.title = 'Download your completed work';
+        feedback.textContent = '🎉 Excellent! You\'ve completed all exercise types! You can now download your work.';
+        feedback.classList.add('show');
+        feedback.style.background = 'rgba(34,211,238,0.1)';
+        feedback.style.borderColor = 'var(--accent)';
+        feedback.style.color = 'var(--accent)';
+      }
     }
 
     function showAnswer() {
@@ -706,10 +737,6 @@
       askedEl.textContent = state.asked;
       correctEl.textContent = state.correct;
       streakEl.textContent = state.streak;
-      
-      const progress = Math.min(100, (state.sessionDone / state.sessionTotal) * 100);
-      progBar.style.width = progress + '%';
-      sessionInfo.textContent = `Session: ${state.sessionDone} / ${state.sessionTotal} done.`;
     }
 
     function resetSession() {
@@ -717,11 +744,68 @@
       state.correct = 0;
       state.streak = 0;
       state.sessionDone = 0;
+      state.completedTypes = {
+        'capitalization': false,
+        'punctuation': false,
+        'complete-sentence': false,
+        'paragraph': false
+      };
+      state.completedExercises = [];
+      
+      // Reset completion badges
+      document.querySelectorAll('.completion-badge').forEach(badge => {
+        badge.classList.remove('completed');
+        badge.querySelector('.badge-icon').textContent = '○';
+      });
+      
+      downloadBtn.disabled = true;
+      downloadBtn.title = 'Complete all exercise types to download';
+      
       updateStats();
       
       feedback.classList.remove('show', 'correct', 'wrong');
       sentenceArea.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">Click "Next Exercise" to start a new lesson!</div>';
       checkBtn.disabled = true;
+    }
+    
+    function downloadAnswers() {
+      if (!Object.values(state.completedTypes).every(v => v)) {
+        alert('Please complete all exercise types before downloading.');
+        return;
+      }
+      
+      // Create a simple text document with all completed exercises
+      let content = 'WRITING SENTENCES & PARAGRAPHS - COMPLETED EXERCISES\n';
+      content += '='.repeat(60) + '\n\n';
+      
+      const typeNames = {
+        'capitalization': 'Capitalization',
+        'punctuation': 'Punctuation',
+        'complete-sentence': 'Complete Sentences',
+        'paragraph': 'Paragraph Building'
+      };
+      
+      state.completedExercises.forEach((ex, idx) => {
+        content += `Exercise ${idx + 1}: ${typeNames[ex.type]}\n`;
+        content += `Question: ${ex.question}\n`;
+        content += `Answer: ${ex.answer}\n`;
+        content += `Your Answer: ${ex.userAnswer}\n`;
+        content += '-'.repeat(60) + '\n\n';
+      });
+      
+      content += `\nTotal Score: ${state.correct} correct out of ${state.asked} asked\n`;
+      content += `Best Streak: ${state.streak}\n`;
+      
+      // Create a blob and download
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'writing-sentences-completed.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
 
     // Initialize
