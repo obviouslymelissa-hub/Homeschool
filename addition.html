@@ -372,6 +372,7 @@
 
     // LocalStorage key for persistence
     const STORAGE_KEY = 'addition_session_state';
+    const DOWNLOAD_THRESHOLD = 10; // Minimum solved problems required for download/print
 
     // Save state to localStorage
     function saveStateToLocalStorage() {
@@ -419,9 +420,8 @@
           if (state.solved.length > 0) {
             renderSolvedList();
             solvedCard.hidden = false;
-            const threshold = 10;
-            downloadBtn.disabled = state.solved.length < threshold;
-            printBtn.disabled = state.solved.length < threshold;
+            downloadBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
+            printBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
           }
           
           updateProgress();
@@ -807,9 +807,8 @@
       renderSolvedList();
 
       solvedCard.hidden = false;
-      const threshold = 10;
-      downloadBtn.disabled = state.solved.length < threshold;
-      printBtn.disabled = state.solved.length < threshold;
+      downloadBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
+      printBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
       
       // Save to localStorage after finalizing
       saveStateToLocalStorage();
