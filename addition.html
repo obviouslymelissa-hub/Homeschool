@@ -129,6 +129,12 @@
     .sum-row{display:flex;gap:6px;align-items:center}
     .hint{font-size:13px;color:var(--muted);margin-top:8px}
 
+    /* suggested carry visual (explain only) - does NOT write a value */
+    .carry-input.suggest {
+      border:1px solid rgba(34,211,238,0.18) !important;
+      box-shadow: 0 4px 10px rgba(34,211,238,0.04);
+    }
+
     /* Stats */
     .stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
     .stat{background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;font-size:13px;min-width:88px;text-align:center}
@@ -450,7 +456,7 @@
           if (state.solved.length > 0) {
             renderSolvedList();
             solvedCard.hidden = false;
-            // allow download if either threshold met or (if a challenge is active) handled elsewhere
+            // allow download if either threshold met
             downloadBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
           }
 
@@ -532,6 +538,21 @@
         arr.push(Math.floor(total/Math.pow(10,i))%10);
       }
       return arr;
+    }
+
+    // compute carries array for columns: returns length d array where arr[i] is carry produced after column i
+    function computeCarries(a,b,d){
+      const carries = new Array(d).fill(0);
+      let c = 0;
+      for(let i=0;i<d;i++){
+        const pow = Math.pow(10,i);
+        const da = Math.floor(a/pow)%10;
+        const db = Math.floor(b/pow)%10;
+        const s = da + db + c;
+        c = Math.floor(s/10);
+        carries[i] = c;
+      }
+      return carries;
     }
 
     function renderProblem(){
@@ -653,10 +674,10 @@
     }
     function getCarryInputsSnapshot(){
       const cells = Array.from(carryRow.children);
-      // Ignore auto-filled carries from Explain (they set data-autovalue)
+      // now we don't use dataset.autovalue; snapshot returns whatever user typed
       return cells.map(cell => {
         if(cell.tagName === 'INPUT'){
-          return cell.dataset.autovalue ? '' : cell.value;
+          return cell.value || '';
         }
         return '';
       });
@@ -767,33 +788,22 @@
 
       explainBox.hidden = false;
 
-      // Populate carry boxes (auto-marked)
-      const carries = (() => {
-        const arr = new Array(d).fill(0);
-        let c = 0;
-        for(let i=0;i<d;i++){
-          const pow = Math.pow(10,i);
-          const da = Math.floor(state.a/pow)%10;
-          const db = Math.floor(state.b/pow)%10;
-          const s = da + db + c;
-          c = Math.floor(s/10);
-          arr[i] = c;
-        }
-        return arr;
-      })();
+      // Highlight carry boxes (suggestion) but do NOT write values into them
+      const carries = computeCarries(state.a, state.b, d); // length d
       const carryCells = Array.from(carryRow.children);
       for(let j=0;j<carryCells.length;j++){
-        const fromIndex = j-1;
-        const desired = (fromIndex >= 0 && fromIndex < carries.length && carries[fromIndex]) ? String(carries[fromIndex]) : '';
+        const fromIndex = j-1; // map carryRow[1] => carry after column 0
         const cell = carryCells[j];
         if(cell.tagName === 'INPUT'){
-          if(cell.value === '' || cell.value === null){
-            cell.value = desired;
-            cell.dataset.autovalue = 'explain';
-            cell.style.border = '1px solid rgba(34,211,238,0.18)';
+          // remove previous suggestion state
+          cell.classList.remove('suggest');
+          if(fromIndex >= 0 && fromIndex < carries.length && carries[fromIndex]){
+            // visually suggest a carry without changing input value
+            cell.classList.add('suggest');
+            cell.setAttribute('aria-label', `Suggested carry ${carries[fromIndex]} for column ${fromIndex+1}`);
           } else {
-            const parsed = parseInt(cell.value,10) || 0;
-            cell.style.border = parsed === (fromIndex >= 0 && fromIndex < carries.length ? carries[fromIndex] : 0) ? '1px solid rgba(34,211,238,0.18)' : '1px solid rgba(239,68,68,0.18)';
+            // ensure label falls back
+            cell.setAttribute('aria-label', `carry for column ${j+1}`);
           }
         }
       }
@@ -844,7 +854,21 @@
       const d = it.digits;
       const expectedDigits = it.expectedDigits || computeSumArrayFor(it.a, it.b, d);
 
-      const finalCarryInputs = it.lastAttempt ? it.lastAttempt.carryInputs.slice() : Array(d+1).fill('');
+      // determine final carry inputs to save in solved list
+      let finalCarryInputs;
+      if(wasCorrect){
+        // compute true carries and save them so PDF shows them
+        const carries = computeCarries(it.a, it.b, d); // length d
+        finalCarryInputs = new Array(d+1).fill('');
+        for(let j=1;j<=d;j++){
+          const c = carries[j-1];
+          finalCarryInputs[j] = c ? String(c) : '';
+        }
+      } else {
+        // use whatever the user entered (if any)
+        finalCarryInputs = it.lastAttempt ? (it.lastAttempt.carryInputs.slice()) : new Array(d+1).fill('');
+      }
+
       const finalUserDigitsRaw = it.lastAttempt ? it.lastAttempt.userDigitsRaw.slice() : Array(d+1).fill('');
 
       state.solved.push({
@@ -865,17 +889,17 @@
       renderSolvedList();
 
       solvedCard.hidden = false;
-      // enable download if either we have enough solved problems OR we are in a challenge (single proof)
+      // enable download if either we have enough saved problems OR we are in a challenge
       downloadBtn.disabled = !(state.solved.length >= DOWNLOAD_THRESHOLD || state.inChallenge);
 
       // Save to localStorage after finalizing
       saveStateToLocalStorage();
 
-      // Enable Next problem button only after the problem is finalized
-      newBtn.disabled = true; // keep Next disabled while inChallenge; allow after leaving challenge via newProblem
-      // If not in challenge, allow Next to be used after a short delay
+      // Keep Next disabled while in challenge; otherwise allow Next
       if(!state.inChallenge){
         setTimeout(()=>{ newBtn.disabled = false; }, 300);
+      } else {
+        newBtn.disabled = true;
       }
     }
 
@@ -890,7 +914,7 @@
         const mini = document.createElement('div');
         mini.className = 'vertical-add mini';
 
-        // Carry row (typed-only) — add carry cells first, placeholder last (aligns under row-reverse)
+        // Carry row (saved finalCarryInputs) — add carry cells first, placeholder last (aligns under row-reverse)
         const carryRowMini = document.createElement('div');
         carryRowMini.className = 'grid-row';
         for(let j=1;j<=it.digits;j++){
@@ -1252,8 +1276,8 @@
       retryBtn.style.display = 'inline-flex';
       // disable check until retry
       checkBtn.disabled = true;
-      // keep inChallenge true until user retries or clicks Next (we'll let them decide)
-      // ensure download button is enabled to allow proof of this single attempt
+      // keep inChallenge true until user retries or clicks Next
+      // allow download (proof) for this single attempt
       downloadBtn.disabled = false;
     }
 
@@ -1287,7 +1311,7 @@
       retryBtn.style.display = 'none';
       // keep Next disabled while challenge active
       newBtn.disabled = true;
-      // enable download only after finalize or immediate (allow proof after finish)
+      // disable download until finalize
       downloadBtn.disabled = true;
     }
 
