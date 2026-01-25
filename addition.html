@@ -185,6 +185,58 @@
       .layout{grid-template-columns:1fr; }
       .vertical-add{min-width:100%}
     }
+
+    /* Explorer game */
+    #explorerGame{
+      position:fixed;
+      bottom:20px;
+      right:20px;
+      width:300px;
+      height:200px;
+      background:linear-gradient(180deg,var(--panel),#07142a);
+      border-radius:12px;
+      padding:16px;
+      box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+      border:1px solid rgba(255,255,255,0.03);
+      z-index:1000;
+    }
+    #explorerArea{
+      position:relative;
+      width:100%;
+      height:140px;
+      background:rgba(0,0,0,0.3);
+      border-radius:8px;
+      overflow:hidden;
+      margin-top:8px;
+    }
+    .explorer{
+      position:absolute;
+      width:24px;
+      height:24px;
+      background:linear-gradient(135deg,var(--accent),var(--accent-2));
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:14px;
+      box-shadow:0 2px 8px rgba(34,211,238,0.3);
+      transition:left 0.5s linear, top 0.5s linear;
+    }
+    .collectible{
+      position:absolute;
+      width:16px;
+      height:16px;
+      background:linear-gradient(90deg,#ffd27c,#ffb86b);
+      border-radius:50%;
+      box-shadow:0 2px 6px rgba(255,210,124,0.3);
+    }
+    #explorerStats{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:6px;
+      display:flex;
+      justify-content:space-between;
+    }
   </style>
 </head>
 <body>
@@ -319,6 +371,19 @@
           If you want, I can adjust difficulty, add more visuals, or make printable worksheets. Tell me what to change.
         </footer>
       </main>
+    </div>
+  </div>
+
+  <!-- Explorer game -->
+  <div id="explorerGame">
+    <div style="font-weight:700;font-size:14px">🧭 Explorer</div>
+    <div id="explorerArea">
+      <div class="explorer" id="explorer">🔍</div>
+    </div>
+    <div id="explorerStats">
+      <span>Found: <strong id="foundCount">0</strong></span>
+      <span>Attempts: <strong id="attemptCount">0</strong></span>
+      <span>Rate: <strong id="hitRate">0%</strong></span>
     </div>
   </div>
 
@@ -767,6 +832,121 @@
         ], { duration: fall, easing:'cubic-bezier(.2,.8,.2,1)' });
       }
       setTimeout(()=>{ document.body.removeChild(container); }, 1800);
+    }
+
+    // Explorer game logic
+    const explorerEl = document.getElementById('explorer');
+    const explorerArea = document.getElementById('explorerArea');
+    const foundCountEl = document.getElementById('foundCount');
+    const attemptCountEl = document.getElementById('attemptCount');
+    const hitRateEl = document.getElementById('hitRate');
+
+    let explorerState = {
+      x: 50,
+      y: 50,
+      foundCount: 0,
+      attemptCount: 0,
+      collectibles: []
+    };
+
+    function moveExplorer() {
+      const areaWidth = explorerArea.offsetWidth;
+      const areaHeight = explorerArea.offsetHeight;
+      const explorerSize = 24;
+      
+      // Random movement within bounds
+      const newX = Math.random() * (areaWidth - explorerSize);
+      const newY = Math.random() * (areaHeight - explorerSize);
+      
+      explorerState.x = newX;
+      explorerState.y = newY;
+      
+      explorerEl.style.left = newX + 'px';
+      explorerEl.style.top = newY + 'px';
+      
+      // Try to collect nearby items with 50% hit rate
+      checkForCollectibles();
+    }
+
+    function spawnCollectible() {
+      const areaWidth = explorerArea.offsetWidth;
+      const areaHeight = explorerArea.offsetHeight;
+      const collectibleSize = 16;
+      
+      const x = Math.random() * (areaWidth - collectibleSize);
+      const y = Math.random() * (areaHeight - collectibleSize);
+      
+      const collectible = document.createElement('div');
+      collectible.className = 'collectible';
+      collectible.style.left = x + 'px';
+      collectible.style.top = y + 'px';
+      explorerArea.appendChild(collectible);
+      
+      explorerState.collectibles.push({
+        element: collectible,
+        x: x,
+        y: y
+      });
+    }
+
+    function checkForCollectibles() {
+      const explorerCenterX = explorerState.x + 12; // center of 24px explorer
+      const explorerCenterY = explorerState.y + 12;
+      const collectDistance = 30; // detection radius
+      
+      for (let i = explorerState.collectibles.length - 1; i >= 0; i--) {
+        const item = explorerState.collectibles[i];
+        const itemCenterX = item.x + 8; // center of 16px collectible
+        const itemCenterY = item.y + 8;
+        
+        const distance = Math.sqrt(
+          Math.pow(explorerCenterX - itemCenterX, 2) + 
+          Math.pow(explorerCenterY - itemCenterY, 2)
+        );
+        
+        if (distance < collectDistance) {
+          explorerState.attemptCount++;
+          
+          // 50% hit rate
+          if (Math.random() < 0.5) {
+            explorerState.foundCount++;
+            item.element.remove();
+            explorerState.collectibles.splice(i, 1);
+            
+            // Add a small visual feedback
+            explorerEl.style.transform = 'scale(1.3)';
+            setTimeout(() => {
+              explorerEl.style.transform = 'scale(1)';
+            }, 200);
+          }
+          
+          updateExplorerStats();
+        }
+      }
+    }
+
+    function updateExplorerStats() {
+      foundCountEl.textContent = explorerState.foundCount;
+      attemptCountEl.textContent = explorerState.attemptCount;
+      const rate = explorerState.attemptCount > 0 
+        ? Math.round((explorerState.foundCount / explorerState.attemptCount) * 100) 
+        : 0;
+      hitRateEl.textContent = rate + '%';
+    }
+
+    // Initialize explorer movement
+    explorerEl.style.left = explorerState.x + 'px';
+    explorerEl.style.top = explorerState.y + 'px';
+
+    // Move explorer every 2 seconds
+    setInterval(moveExplorer, 2000);
+
+    // Spawn collectibles every 3 seconds
+    setInterval(spawnCollectible, 3000);
+
+    // Spawn initial collectibles
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => spawnCollectible(), i * 1000);
     }
 
     function updateProgress(){
