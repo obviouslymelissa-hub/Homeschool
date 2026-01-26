@@ -1,1 +1,811 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Writing Sentences</title>
+  <meta name="description" content="Interactive practice for writing sentences and paragraphs." />
 
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#0f1724;
+      --muted:#9aa4b2;
+      --accent:#22d3ee;
+      --accent-2:#7c3aed;
+      --good:#16a34a;
+      --bad:#ef4444;
+      --card:#071025;
+      --glass: rgba(255,255,255,0.03);
+      font-synthesis: none;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg,var(--bg),#031025 120%);
+      color:#e6eef6;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:24px;
+      box-sizing:border-box;
+    }
+    .wrap{max-width:1000px;margin:0 auto;}
+    header{display:flex;gap:16px;align-items:center;margin-bottom:12px;}
+    .logo{
+      width:64px;height:64px;border-radius:12px;
+      background:linear-gradient(135deg,var(--accent),var(--accent-2));
+      display:flex;align-items:center;justify-content:center;
+      font-weight:700;color:#021022;font-size:20px;
+      box-shadow:0 6px 20px rgba(34,211,238,0.12);
+    }
+    h1{margin:0;font-size:20px;}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .layout{
+      display:grid;
+      grid-template-columns: 340px 1fr;
+      gap:20px;
+      margin-top:18px;
+    }
+
+    .card{
+      background:linear-gradient(180deg,var(--panel),#07142a);
+      border-radius:12px;padding:16px;
+      box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+      border:1px solid rgba(255,255,255,0.03);
+    }
+
+    /* Controls */
+    .controls label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    .controls .row{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    select,input[type="text"],input[type="checkbox"]{
+      background:var(--glass);border:1px solid rgba(255,255,255,0.04);
+      color:inherit;padding:8px;border-radius:8px;font-size:14px;width:100%;
+      box-sizing:border-box;
+    }
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;
+      background:linear-gradient(90deg,var(--accent),var(--accent-2));
+      color:#021022;font-weight:700;padding:10px 14px;border-radius:10px;border:none;
+      cursor:pointer; box-shadow:0 8px 18px rgba(7,20,40,0.4);
+    }
+    .btn:disabled{opacity:0.5;cursor:not-allowed;}
+    .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.05);color:var(--accent);}
+    .tiny{font-size:13px;padding:6px 9px;border-radius:8px}
+
+    /* Stats */
+    .stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .stat{background:rgba(255,255,255,0.02);padding:8px;border-radius:8px;font-size:13px;min-width:88px;text-align:center}
+    .progress{height:10px;background:rgba(255,255,255,0.03);border-radius:6px;overflow:hidden}
+    .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0%}
+
+    /* Exercise area */
+    .stage{display:flex;flex-direction:column;gap:12px;align-items:stretch;}
+    .exercise-card{
+      padding:18px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);
+      display:flex;flex-direction:column;gap:16px;
+    }
+    
+    .sentence-area{
+      background:linear-gradient(180deg,#041426 80%,transparent);
+      padding:18px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);
+      min-height:120px;
+    }
+
+    .word-bank{
+      display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;
+    }
+    
+    .word-chip{
+      padding:8px 14px;
+      background:rgba(255,255,255,0.05);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:8px;
+      cursor:pointer;
+      user-select:none;
+      transition: all 0.2s;
+    }
+    
+    .word-chip:hover{
+      background:rgba(34,211,238,0.1);
+      border-color:var(--accent);
+    }
+    
+    .word-chip.selected{
+      background:linear-gradient(90deg,var(--accent),var(--accent-2));
+      color:#021022;
+      font-weight:600;
+    }
+    
+    .word-chip.used{
+      opacity:0.3;
+      cursor:not-allowed;
+    }
+
+    .sentence-input{
+      background:transparent;
+      border:1px dashed rgba(255,255,255,0.08);
+      border-radius:8px;
+      padding:12px;
+      color:inherit;
+      font-size:16px;
+      width:100%;
+      box-sizing:border-box;
+      font-family: inherit;
+      min-height:80px;
+      resize:vertical;
+    }
+    
+    .sentence-input:focus{
+      outline:none;
+      border-color:var(--accent);
+    }
+
+    .hint{font-size:13px;color:var(--muted);margin-top:8px}
+    .instruction{
+      font-size:14px;
+      color:#e6eef6;
+      margin-bottom:12px;
+      padding:12px;
+      background:rgba(255,255,255,0.02);
+      border-radius:8px;
+      border-left:3px solid var(--accent);
+    }
+
+    /* Feedback */
+    .feedback{
+      padding:12px;
+      border-radius:8px;
+      font-size:14px;
+      margin-top:12px;
+      display:none;
+    }
+    .feedback.correct{
+      background:rgba(22,163,74,0.1);
+      border:1px solid rgba(22,163,74,0.18);
+      color:var(--good);
+    }
+    .feedback.wrong{
+      background:rgba(239,68,68,0.1);
+      border:1px solid rgba(239,68,68,0.14);
+      color:var(--bad);
+    }
+    .feedback.show{display:block;}
+
+    /* Helper section */
+    .helper-box{
+      background:rgba(255,255,255,0.01);
+      padding:12px;
+      border-radius:8px;
+      font-size:13px;
+      margin-top:8px;
+    }
+    .helper-box h4{
+      margin:0 0 8px;
+      font-size:14px;
+      color:var(--accent);
+    }
+    .helper-box ul{
+      margin:6px 0;
+      padding-left:20px;
+      color:var(--muted);
+    }
+    .helper-box li{
+      margin:4px 0;
+    }
+
+    /* Exercise types */
+    .exercise-type-selector{
+      display:flex;
+      gap:8px;
+      margin-bottom:12px;
+    }
+    .exercise-type-btn{
+      padding:8px 12px;
+      background:rgba(255,255,255,0.03);
+      border:1px solid rgba(255,255,255,0.05);
+      border-radius:8px;
+      color:var(--muted);
+      cursor:pointer;
+      font-size:13px;
+    }
+    .exercise-type-btn.active{
+      background:linear-gradient(90deg,var(--accent),var(--accent-2));
+      color:#021022;
+      font-weight:600;
+      border-color:transparent;
+    }
+
+    /* Paragraph area */
+    .paragraph-builder{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .paragraph-sentence{
+      padding:10px;
+      background:rgba(255,255,255,0.02);
+      border-radius:6px;
+      border-left:3px solid var(--accent);
+    }
+
+    /* Completion badges */
+    .completion-badge{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      background:rgba(255,255,255,0.03);
+      border:1px solid rgba(255,255,255,0.05);
+      border-radius:6px;
+      font-size:13px;
+      color:var(--muted);
+    }
+    .completion-badge.completed{
+      background:rgba(22,163,74,0.1);
+      border-color:rgba(22,163,74,0.18);
+      color:var(--good);
+    }
+    .badge-icon{
+      font-size:16px;
+      font-weight:700;
+    }
+    .completion-badge.completed .badge-icon{
+      color:var(--good);
+    }
+
+    /* Responsive */
+    @media (max-width:860px){
+      .layout{grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo" aria-hidden="true">✍️</div>
+      <div>
+        <h1>Writing Sentences & Paragraphs</h1>
+        <p class="lead">Interactive page for learning proper sentence structure and paragraph writing.</p>
+      </div>
+    </header>
+
+    <!-- TOP: settings card -->
+    <div class="card" aria-labelledby="lesson-settings-heading" style="margin-top:18px">
+      <h3 id="lesson-settings-heading" style="margin:0 0 12px">Lesson settings</h3>
+
+      <div class="exercise-type-selector">
+        <button class="exercise-type-btn active" data-type="capitalization">Capitalization</button>
+        <button class="exercise-type-btn" data-type="punctuation">Punctuation</button>
+        <button class="exercise-type-btn" data-type="complete-sentence">Complete Sentences</button>
+        <button class="exercise-type-btn" data-type="paragraph">Build a Paragraph</button>
+      </div>
+
+      <div style="margin-top:12px;padding:12px;background:rgba(255,255,255,0.02);border-radius:8px;">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Lesson Progress: Complete one of each exercise type</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <div class="completion-badge" id="badge-capitalization">
+            <span class="badge-icon">○</span> Capitalization
+          </div>
+          <div class="completion-badge" id="badge-punctuation">
+            <span class="badge-icon">○</span> Punctuation
+          </div>
+          <div class="completion-badge" id="badge-complete-sentence">
+            <span class="badge-icon">○</span> Complete Sentences
+          </div>
+          <div class="completion-badge" id="badge-paragraph">
+            <span class="badge-icon">○</span> Paragraph
+          </div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">Asked: <strong id="asked">0</strong></div>
+        <div class="stat">Correct: <strong id="correct">0</strong></div>
+        <div class="stat">Streak: <strong id="streak">0</strong></div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+        <button id="downloadBtn" class="btn tiny" disabled title="Complete all exercise types to download">Download Answers</button>
+        <div style="flex:1"></div>
+        <button id="newLessonBtn" class="btn ghost tiny">Start New Lesson</button>
+      </div>
+    </div>
+
+    <div class="layout" style="margin-top:18px">
+      <!-- LEFT: helpers -->
+      <aside class="card" aria-labelledby="helpers-heading">
+        <h4 id="helpers-heading" style="margin-top:0">Writing Tips</h4>
+
+        <div class="helper-box">
+          <h4>Sentence Parts</h4>
+          <ul>
+            <li><strong>Subject:</strong> Who or what the sentence is about</li>
+            <li><strong>Predicate:</strong> What the subject does</li>
+            <li><strong>Complete thought:</strong> Sentences must make sense alone</li>
+          </ul>
+        </div>
+
+        <div class="helper-box">
+          <h4>Capitalization Rules</h4>
+          <ul>
+            <li>First word of a sentence</li>
+            <li>Names of people and places</li>
+            <li>Days and months</li>
+            <li>The pronoun "I"</li>
+          </ul>
+        </div>
+
+        <div class="helper-box">
+          <h4>Punctuation</h4>
+          <ul>
+            <li><strong>.</strong> Period ends a statement</li>
+            <li><strong>?</strong> Question mark for questions</li>
+            <li><strong>!</strong> Exclamation for excitement</li>
+          </ul>
+        </div>
+
+        <div class="helper-box">
+          <h4>Good Paragraphs</h4>
+          <ul>
+            <li>Start with a topic sentence</li>
+            <li>Add supporting details</li>
+            <li>End with a concluding sentence</li>
+            <li>Indent the first line</li>
+          </ul>
+        </div>
+      </aside>
+
+      <main class="card stage" aria-live="polite">
+        <div class="exercise-card" id="exerciseCard">
+          <div class="instruction" id="instruction">
+            Click "Next Exercise" to begin learning about sentence structure!
+          </div>
+
+          <div class="sentence-area" id="sentenceArea">
+            <!-- Dynamic exercise content goes here -->
+          </div>
+
+          <div id="feedback" class="feedback"></div>
+
+          <!-- Buttons -->
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button id="checkBtn" class="btn tiny" disabled>Check Answer</button>
+            <button id="nextBtn" class="btn ghost tiny">Next Exercise</button>
+            <button id="showAnswerBtn" class="btn ghost tiny" style="margin-left:auto">Show Answer</button>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let state = {
+      exerciseType: 'capitalization',
+      asked: 0,
+      correct: 0,
+      streak: 0,
+      currentExercise: null,
+      userAnswer: null,
+      completedTypes: {
+        'capitalization': false,
+        'punctuation': false,
+        'complete-sentence': false,
+        'paragraph': false
+      },
+      completedExercises: []
+    };
+
+    // Exercise data for different types
+    const exercises = {
+      'capitalization': [
+        { text: 'the boy went to school.', answer: 'The boy went to school.', error: 'First word' },
+        { text: 'i like to play outside.', answer: 'I like to play outside.', error: 'Pronoun "I"' },
+        { text: 'sarah is my best friend.', answer: 'Sarah is my best friend.', error: 'Person\'s name' },
+        { text: 'we go to the park on sunday.', answer: 'We go to the park on Sunday.', error: 'Day of week' },
+        { text: 'my birthday is in july.', answer: 'My birthday is in July.', error: 'Month name' },
+        { text: 'we live in new york.', answer: 'We live in New York.', error: 'Place name' },
+        { text: 'mr. johnson teaches us math.', answer: 'Mr. Johnson teaches us math.', error: 'Name & title' }
+      ],
+      'punctuation': [
+        { text: 'What is your name', answer: 'What is your name?', type: 'question' },
+        { text: 'I love pizza', answer: 'I love pizza.', type: 'statement' },
+        { text: 'Watch out', answer: 'Watch out!', type: 'exclamation' },
+        { text: 'Where are you going', answer: 'Where are you going?', type: 'question' },
+        { text: 'That was amazing', answer: 'That was amazing!', type: 'exclamation' },
+        { text: 'The sun is shining', answer: 'The sun is shining.', type: 'statement' },
+        { text: 'Can you help me', answer: 'Can you help me?', type: 'question' }
+      ],
+      'complete-sentence': [
+        { fragments: ['ran fast', 'The dog'], answer: 'The dog ran fast.', issue: 'subject-predicate order' },
+        { fragments: ['playing outside', 'The children are'], answer: 'The children are playing outside.', issue: 'complete thought' },
+        { fragments: ['to the store', 'We walked'], answer: 'We walked to the store.', issue: 'subject and verb' },
+        { fragments: ['is very tall', 'My brother'], answer: 'My brother is very tall.', issue: 'complete sentence' },
+        { fragments: ['homework together', 'My friends and I do'], answer: 'My friends and I do homework together.', issue: 'subject and predicate' }
+      ],
+      'paragraph': [
+        {
+          topic: 'My Favorite Pet',
+          sentences: [
+            'I have a pet dog named Max.',
+            'He has brown fur and floppy ears.',
+            'Max loves to play fetch in the yard.',
+            'I take care of him every day.',
+            'Max is the best pet anyone could have.'
+          ],
+          answer: 'I have a pet dog named Max. He has brown fur and floppy ears. Max loves to play fetch in the yard. I take care of him every day. Max is the best pet anyone could have.',
+          structure: ['topic', 'detail', 'detail', 'detail', 'conclusion']
+        },
+        {
+          topic: 'A Fun Day at the Park',
+          sentences: [
+            'Yesterday, I went to the park with my family.',
+            'We had a picnic lunch under a big tree.',
+            'My sister and I played on the swings.',
+            'Dad taught me how to fly a kite.',
+            'It was a wonderful day that I will always remember.'
+          ],
+          answer: 'Yesterday, I went to the park with my family. We had a picnic lunch under a big tree. My sister and I played on the swings. Dad taught me how to fly a kite. It was a wonderful day that I will always remember.',
+          structure: ['topic', 'detail', 'detail', 'detail', 'conclusion']
+        }
+      ]
+    };
+
+    // DOM elements
+    const typeButtons = document.querySelectorAll('.exercise-type-btn');
+    const instruction = document.getElementById('instruction');
+    const sentenceArea = document.getElementById('sentenceArea');
+    const feedback = document.getElementById('feedback');
+    const checkBtn = document.getElementById('checkBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const showAnswerBtn = document.getElementById('showAnswerBtn');
+    const newLessonBtn = document.getElementById('newLessonBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const askedEl = document.getElementById('asked');
+    const correctEl = document.getElementById('correct');
+    const streakEl = document.getElementById('streak');
+
+    // Event listeners
+    typeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        typeButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.exerciseType = btn.dataset.type;
+        generateExercise();
+      });
+    });
+
+    checkBtn.addEventListener('click', checkAnswer);
+    nextBtn.addEventListener('click', generateExercise);
+    showAnswerBtn.addEventListener('click', showAnswer);
+    newLessonBtn.addEventListener('click', resetSession);
+    downloadBtn.addEventListener('click', downloadAnswers);
+
+    // Generate exercise based on type
+    function generateExercise() {
+      feedback.classList.remove('show', 'correct', 'wrong');
+      feedback.textContent = '';
+      feedback.style.background = '';
+      feedback.style.borderColor = '';
+      feedback.style.color = '';
+      checkBtn.disabled = false;
+      
+      const exerciseList = exercises[state.exerciseType];
+      if (!exerciseList || exerciseList.length === 0) return;
+
+      state.currentExercise = exerciseList[Math.floor(Math.random() * exerciseList.length)];
+      state.userAnswer = null;
+
+      sentenceArea.innerHTML = '';
+
+      switch(state.exerciseType) {
+        case 'capitalization':
+          generateCapitalizationExercise();
+          break;
+        case 'punctuation':
+          generatePunctuationExercise();
+          break;
+        case 'complete-sentence':
+          generateCompleteSentenceExercise();
+          break;
+        case 'paragraph':
+          generateParagraphExercise();
+          break;
+      }
+
+      state.asked++;
+      updateStats();
+    }
+
+    function generateCapitalizationExercise() {
+      instruction.textContent = 'Fix the capitalization in this sentence. Type the sentence correctly.';
+      
+      const textbox = document.createElement('textarea');
+      textbox.className = 'sentence-input';
+      textbox.value = state.currentExercise.text;
+      textbox.placeholder = 'Type the corrected sentence here...';
+      
+      textbox.addEventListener('input', () => {
+        state.userAnswer = textbox.value.trim();
+      });
+      
+      sentenceArea.appendChild(textbox);
+      
+      const hint = document.createElement('div');
+      hint.className = 'hint';
+      hint.textContent = `Hint: Check ${state.currentExercise.error}`;
+      sentenceArea.appendChild(hint);
+    }
+
+    function generatePunctuationExercise() {
+      instruction.textContent = 'Add the correct punctuation mark at the end of this sentence.';
+      
+      const textbox = document.createElement('textarea');
+      textbox.className = 'sentence-input';
+      textbox.value = state.currentExercise.text;
+      textbox.placeholder = 'Add punctuation...';
+      
+      textbox.addEventListener('input', () => {
+        state.userAnswer = textbox.value.trim();
+      });
+      
+      sentenceArea.appendChild(textbox);
+      
+      const hint = document.createElement('div');
+      hint.className = 'hint';
+      hint.textContent = `This is a ${state.currentExercise.type}.`;
+      sentenceArea.appendChild(hint);
+    }
+
+    function generateCompleteSentenceExercise() {
+      instruction.textContent = 'Combine these fragments to make a complete sentence. Type the sentence.';
+      
+      const fragmentsDiv = document.createElement('div');
+      fragmentsDiv.style.marginBottom = '12px';
+      fragmentsDiv.style.padding = '12px';
+      fragmentsDiv.style.background = 'rgba(255,255,255,0.03)';
+      fragmentsDiv.style.borderRadius = '8px';
+      
+      state.currentExercise.fragments.forEach(frag => {
+        const fragEl = document.createElement('div');
+        fragEl.textContent = `• ${frag}`;
+        fragEl.style.padding = '4px 0';
+        fragmentsDiv.appendChild(fragEl);
+      });
+      
+      sentenceArea.appendChild(fragmentsDiv);
+      
+      const textbox = document.createElement('textarea');
+      textbox.className = 'sentence-input';
+      textbox.placeholder = 'Type the complete sentence here...';
+      
+      textbox.addEventListener('input', () => {
+        state.userAnswer = textbox.value.trim();
+      });
+      
+      sentenceArea.appendChild(textbox);
+    }
+
+    function generateParagraphExercise() {
+      instruction.textContent = 'Put these sentences in order to form a good paragraph.';
+      
+      const shuffled = [...state.currentExercise.sentences].sort(() => Math.random() - 0.5);
+      const selectedSentences = [];
+      
+      const paragraphArea = document.createElement('div');
+      paragraphArea.id = 'paragraphArea';
+      paragraphArea.className = 'paragraph-builder';
+      paragraphArea.style.minHeight = '100px';
+      paragraphArea.style.padding = '12px';
+      paragraphArea.style.background = 'rgba(255,255,255,0.03)';
+      paragraphArea.style.borderRadius = '8px';
+      paragraphArea.style.marginBottom = '12px';
+      
+      const sentenceBank = document.createElement('div');
+      sentenceBank.style.display = 'flex';
+      sentenceBank.style.flexDirection = 'column';
+      sentenceBank.style.gap = '8px';
+      
+      shuffled.forEach((sent, idx) => {
+        const sentDiv = document.createElement('div');
+        sentDiv.className = 'word-chip';
+        sentDiv.textContent = sent;
+        sentDiv.style.padding = '12px';
+        sentDiv.dataset.index = idx;
+        
+        sentDiv.addEventListener('click', () => {
+          if (sentDiv.classList.contains('used')) return;
+          sentDiv.classList.add('used');
+          selectedSentences.push(sent);
+          
+          const sentEl = document.createElement('div');
+          sentEl.className = 'paragraph-sentence';
+          sentEl.textContent = `${selectedSentences.length}. ${sent}`;
+          paragraphArea.appendChild(sentEl);
+          
+          state.userAnswer = selectedSentences.join(' ');
+        });
+        
+        sentenceBank.appendChild(sentDiv);
+      });
+      
+      sentenceArea.appendChild(paragraphArea);
+      sentenceArea.appendChild(sentenceBank);
+      
+      const resetBtn = document.createElement('button');
+      resetBtn.textContent = 'Reset';
+      resetBtn.className = 'btn ghost tiny';
+      resetBtn.style.marginTop = '8px';
+      resetBtn.addEventListener('click', () => {
+        selectedSentences.length = 0;
+        paragraphArea.innerHTML = '';
+        state.userAnswer = null;
+        sentenceBank.querySelectorAll('.word-chip').forEach(c => c.classList.remove('used'));
+      });
+      sentenceArea.appendChild(resetBtn);
+    }
+
+    function checkAnswer() {
+      if (!state.userAnswer) {
+        feedback.textContent = 'Please complete the exercise first.';
+        feedback.classList.add('show', 'wrong');
+        return;
+      }
+
+      const isCorrect = state.userAnswer.trim() === state.currentExercise.answer.trim();
+
+      if (isCorrect) {
+        state.correct++;
+        state.streak++;
+        feedback.textContent = '✓ Correct! Great job!';
+        feedback.classList.add('show', 'correct');
+        
+        // Mark this exercise type as completed
+        if (!state.completedTypes[state.exerciseType]) {
+          state.completedTypes[state.exerciseType] = true;
+          updateCompletionBadges();
+        }
+        
+        // Store the completed exercise
+        state.completedExercises.push({
+          type: state.exerciseType,
+          question: getExerciseQuestion(),
+          answer: state.currentExercise.answer,
+          userAnswer: state.userAnswer
+        });
+      } else {
+        state.streak = 0;
+        feedback.textContent = `✗ Not quite right. The correct answer is: "${state.currentExercise.answer}"`;
+        feedback.classList.add('show', 'wrong');
+      }
+
+      checkBtn.disabled = true;
+      updateStats();
+    }
+    
+    function getExerciseQuestion() {
+      switch(state.exerciseType) {
+        case 'capitalization':
+          return state.currentExercise.text;
+        case 'punctuation':
+          return state.currentExercise.text;
+        case 'complete-sentence':
+          return state.currentExercise.fragments.join(' + ');
+        case 'paragraph':
+          return state.currentExercise.sentences.join(' | ');
+        default:
+          return '';
+      }
+    }
+    
+    function updateCompletionBadges() {
+      Object.keys(state.completedTypes).forEach(type => {
+        const badge = document.getElementById(`badge-${type}`);
+        if (badge && state.completedTypes[type]) {
+          badge.classList.add('completed');
+          badge.querySelector('.badge-icon').textContent = '✓';
+        }
+      });
+      
+      // Check if all types are completed
+      const allCompleted = Object.values(state.completedTypes).every(v => v);
+      if (allCompleted) {
+        downloadBtn.disabled = false;
+        downloadBtn.title = 'Download your completed work';
+        feedback.textContent = '🎉 Excellent! You\'ve completed all exercise types! You can now download your work.';
+        feedback.classList.add('show');
+        feedback.style.background = 'rgba(34,211,238,0.1)';
+        feedback.style.borderColor = 'var(--accent)';
+        feedback.style.color = 'var(--accent)';
+      }
+    }
+
+    function showAnswer() {
+      feedback.textContent = `Answer: "${state.currentExercise.answer}"`;
+      feedback.classList.add('show');
+      feedback.style.background = 'rgba(34,211,238,0.1)';
+      feedback.style.borderColor = 'var(--accent)';
+      feedback.style.color = 'var(--accent)';
+    }
+
+    function updateStats() {
+      askedEl.textContent = state.asked;
+      correctEl.textContent = state.correct;
+      streakEl.textContent = state.streak;
+    }
+
+    function resetSession() {
+      state.asked = 0;
+      state.correct = 0;
+      state.streak = 0;
+      state.completedTypes = {
+        'capitalization': false,
+        'punctuation': false,
+        'complete-sentence': false,
+        'paragraph': false
+      };
+      state.completedExercises = [];
+      
+      // Reset completion badges
+      document.querySelectorAll('.completion-badge').forEach(badge => {
+        badge.classList.remove('completed');
+        badge.querySelector('.badge-icon').textContent = '○';
+      });
+      
+      downloadBtn.disabled = true;
+      downloadBtn.title = 'Complete all exercise types to download';
+      
+      updateStats();
+      
+      feedback.classList.remove('show', 'correct', 'wrong');
+      sentenceArea.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">Click "Next Exercise" to start a new lesson!</div>';
+      checkBtn.disabled = true;
+    }
+    
+    function downloadAnswers() {
+      if (!Object.values(state.completedTypes).every(v => v)) {
+        alert('Please complete all exercise types before downloading.');
+        return;
+      }
+      
+      // Create a simple text document with all completed exercises
+      let content = 'WRITING SENTENCES & PARAGRAPHS - COMPLETED EXERCISES\n';
+      content += '='.repeat(60) + '\n\n';
+      
+      const typeNames = {
+        'capitalization': 'Capitalization',
+        'punctuation': 'Punctuation',
+        'complete-sentence': 'Complete Sentences',
+        'paragraph': 'Paragraph Building'
+      };
+      
+      state.completedExercises.forEach((ex, idx) => {
+        content += `Exercise ${idx + 1}: ${typeNames[ex.type]}\n`;
+        content += `Question: ${ex.question}\n`;
+        content += `Answer: ${ex.answer}\n`;
+        content += `Your Answer: ${ex.userAnswer}\n`;
+        content += '-'.repeat(60) + '\n\n';
+      });
+      
+      content += `\nTotal Score: ${state.correct} correct out of ${state.asked} asked\n`;
+      content += `Best Streak: ${state.streak}\n`;
+      
+      // Create a blob and download
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'writing-sentences-completed.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Initialize
+    updateStats();
+  </script>
+</body>
+</html>
