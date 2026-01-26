@@ -655,9 +655,6 @@
       }
 
       const isCorrect = state.userAnswer.trim() === state.currentExercise.answer.trim();
-      
-      // Always increment session done for progress tracking
-      state.sessionDone++;
 
       if (isCorrect) {
         state.correct++;
@@ -743,7 +740,6 @@
       state.asked = 0;
       state.correct = 0;
       state.streak = 0;
-      state.sessionDone = 0;
       state.completedTypes = {
         'capitalization': false,
         'punctuation': false,
