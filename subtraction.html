@@ -796,10 +796,11 @@
         const hasBorrow = columnIndex < borrowInputs.length && 
                          borrowInputs[columnIndex].value === '1';
         
-        // Check if next column borrowed from this one
-        const nextColumnIdx = columnIndex + 1;
-        const wasBorrowedFrom = nextColumnIdx < borrowInputs.length && 
-                                borrowInputs[nextColumnIdx].value === '1';
+        // Check if previous column borrowed from this one
+        // (borrowInputs[i-1] = '1' means column i-1 borrowed, taking from column i)
+        const prevColumnIdx = columnIndex - 1;
+        const wasBorrowedFrom = prevColumnIdx >= 0 && prevColumnIdx < borrowInputs.length && 
+                                borrowInputs[prevColumnIdx].value === '1';
         
         if (wasBorrowedFrom && hasBorrow) {
           // Both borrowed from AND borrowed to: show crossed out original, and regrouped value
