@@ -729,7 +729,7 @@
         cellA.style.cursor = 'pointer';
         cellA.innerHTML = `<span class="digit-display">${da}</span>`;
         cellA.addEventListener('click', () => showBorrowingHelp(i, da, db));
-        cellA.setAttribute('title', 'Click to highlight this digit');
+        cellA.setAttribute('title', 'Click for visual feedback');
         
         const cellB = document.createElement('div'); 
         cellB.className='digit-cell'; 
@@ -840,7 +840,7 @@
       const targetCell = minuendCells.find(cell => parseInt(cell.dataset.columnIndex) === columnIndex);
       if (targetCell) {
         targetCell.classList.add('borrowed-indicator');
-        setTimeout(() => targetCell.classList.remove('borrowed-indicator'), 1000);
+        setTimeout(() => targetCell.classList.remove('borrowed-indicator'), 2000);
       }
     }
 
