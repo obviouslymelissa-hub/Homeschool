@@ -492,7 +492,7 @@
             
             <a href="#" class="subject-button" style="opacity:0.5;pointer-events:none;">
               <div class="subject-content">
-                <span class="subject-icon">🔤</span>
+                <span class="subject-icon">📝</span>
                 <h3 class="subject-name">Spelling</h3>
                 <p class="subject-desc">Coming soon!</p>
               </div>
@@ -500,7 +500,7 @@
             
             <a href="alphabet.html" class="subject-button">
               <div class="subject-content">
-                <span class="subject-icon">🔤</span>
+                <span class="subject-icon">🅰️</span>
                 <h3 class="subject-name">Alphabet</h3>
                 <p class="subject-desc">Letter recognition practice</p>
               </div>
@@ -607,16 +607,18 @@
     const sevenDaysAgo = new Date(today);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     
+    const keysToRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith('checklist-')) {
         const dateStr = key.replace('checklist-', '');
         const itemDate = new Date(dateStr);
         if (itemDate < sevenDaysAgo) {
-          localStorage.removeItem(key);
+          keysToRemove.push(key);
         }
       }
     }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
   </script>
 </body>
 </html>
