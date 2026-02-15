@@ -172,9 +172,9 @@
     .separator::before{
       content:'−'; /* minus sign */
       position:absolute;
-      left:-32px;
-      top:-12px;
-      font-size:24px;
+      left:-2em; /* responsive positioning */
+      top:-0.5em;
+      font-size:1.5em;
       color:var(--accent);
       font-weight:700;
     }
@@ -783,7 +783,8 @@
       const borrowInputs = Array.from(carryRow.querySelectorAll('input'));
       const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
       
-      // borrowInputs only contains INPUT elements (not the placeholder DIV)
+      // borrowInputs only contains INPUT elements (querySelectorAll skips the placeholder DIV)
+      // The carry row has a DIV placeholder at index 0 in the DOM, but borrowInputs starts with the first input
       // borrowInputs[0] corresponds to column 0 (ones place)
       // borrowInputs[1] corresponds to column 1 (tens place), etc.
       
@@ -797,7 +798,7 @@
                          borrowInputs[columnIndex].value === '1';
         
         // Check if previous column borrowed from this one
-        // (borrowInputs[i-1] = '1' means column i-1 borrowed, taking from column i)
+        // (borrowInputs[columnIndex-1] = '1' means column columnIndex-1 borrowed, taking from column columnIndex)
         const prevColumnIdx = columnIndex - 1;
         const wasBorrowedFrom = prevColumnIdx >= 0 && prevColumnIdx < borrowInputs.length && 
                                 borrowInputs[prevColumnIdx].value === '1';
