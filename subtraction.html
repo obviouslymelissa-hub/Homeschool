@@ -110,6 +110,17 @@
       position:relative; flex-direction:column;
     }
     
+    .digit-cell.clickable-minuend {
+      cursor: pointer;
+      transition: all 260ms ease;
+    }
+    
+    .digit-cell.clickable-minuend:hover {
+      background: rgba(34,211,238,0.08);
+      border: 1px solid rgba(34,211,238,0.2);
+      transform: scale(1.05);
+    }
+    
     /* Borrowing visualization */
     .digit-cell .crossed-out{
       text-decoration:line-through; text-decoration-color:rgba(239,68,68,0.6); 
@@ -117,9 +128,26 @@
     }
     .digit-cell .borrowed-prefix{
       font-size:16px; color:var(--accent); font-weight:700; margin-right:2px;
+      animation: pulse 600ms ease-in-out;
     }
     .digit-cell .regrouped-value{
       display:flex; align-items:center; justify-content:center; font-size:28px;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.8; }
+    }
+    
+    .digit-cell.borrowed-indicator {
+      border: 2px solid rgba(34, 211, 238, 0.4);
+      background: rgba(34, 211, 238, 0.04);
+      animation: glow 1s ease-in-out;
+    }
+    
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 5px rgba(34, 211, 238, 0.2); }
+      50% { box-shadow: 0 0 15px rgba(34, 211, 238, 0.4); }
     }
 
     .carry-input{
@@ -198,6 +226,70 @@
 
     /* footer help */
     footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+    
+    /* Tutorial overlay */
+    .tutorial-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(11, 16, 32, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 300ms ease-in;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    .tutorial-content {
+      background: linear-gradient(180deg,var(--panel),#07142a);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 700px;
+      max-height: 80vh;
+      overflow-y: auto;
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: 0 12px 40px rgba(2,6,23,0.8);
+    }
+    
+    .tutorial-content h2 {
+      margin: 0 0 16px 0;
+      color: var(--accent);
+      font-size: 24px;
+    }
+    
+    .tutorial-content p {
+      margin: 12px 0;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+    
+    .tutorial-step {
+      background: rgba(255,255,255,0.02);
+      border-left: 3px solid var(--accent);
+      padding: 12px;
+      margin: 12px 0;
+      border-radius: 6px;
+    }
+    
+    .tutorial-step strong {
+      color: var(--accent);
+      display: block;
+      margin-bottom: 6px;
+    }
+    
+    .tutorial-controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
 
     /* Ten-frame helper (two frames per column, stacked vertically) */
     .tenframes { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
@@ -262,6 +354,13 @@
             <option value="3" selected>3 digits</option>
             <option value="4">4 digits</option>
           </select>
+        </div>
+
+        <div class="row" style="width:100%">
+          <label style="flex:0 0 160px">Learn how</label>
+          <button id="startTutorialBtn" class="btn tiny ghost" title="Watch a guided tutorial on borrowing" style="flex:1">
+            Start Tutorial
+          </button>
         </div>
 
         <div class="row" style="width:100%">
@@ -619,10 +718,13 @@
         
         // Minuend cell with borrowing visualization support
         const cellA = document.createElement('div'); 
-        cellA.className='digit-cell';
+        cellA.className='digit-cell clickable-minuend';
         cellA.dataset.originalDigit = da;
         cellA.dataset.columnIndex = i;
+        cellA.style.cursor = 'pointer';
         cellA.innerHTML = `<span class="digit-display">${da}</span>`;
+        cellA.addEventListener('click', () => showBorrowingHelp(i, da, db));
+        cellA.setAttribute('title', 'Click to see borrowing explanation for this digit');
         
         const cellB = document.createElement('div'); 
         cellB.className='digit-cell'; 
@@ -729,6 +831,83 @@
       });
     }
 
+    // Show borrowing help when a minuend cell is clicked
+    function showBorrowingHelp(columnIndex, digitValue, subtrahendDigit) {
+      const placeNames = ['ones', 'tens', 'hundreds', 'thousands'];
+      const placeName = placeNames[columnIndex] || `${columnIndex+1}-place`;
+      
+      // Check if borrowing is needed for this column
+      const needsBorrow = digitValue < subtrahendDigit;
+      
+      let helpMessage = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Help: ${placeName.charAt(0).toUpperCase() + placeName.slice(1)} column</div>`;
+      
+      if (needsBorrow) {
+        helpMessage += `<div class="tutorial-step">
+          <strong>Borrowing needed!</strong>
+          ${digitValue} is less than ${subtrahendDigit}, so we need to borrow.<br><br>
+          <strong>Steps:</strong><br>
+          1. Borrow 1 from the ${placeNames[columnIndex + 1] || 'next'} place<br>
+          2. That 1 becomes 10 in this column<br>
+          3. ${digitValue} + 10 = ${digitValue + 10}<br>
+          4. Now subtract: ${digitValue + 10} - ${subtrahendDigit} = ${digitValue + 10 - subtrahendDigit}
+        </div>`;
+      } else {
+        helpMessage += `<div class="tutorial-step">
+          <strong>No borrowing needed</strong>
+          ${digitValue} is greater than or equal to ${subtrahendDigit}.<br><br>
+          Simply subtract: ${digitValue} - ${subtrahendDigit} = ${digitValue - subtrahendDigit}
+        </div>`;
+      }
+      
+      explainText.innerHTML = helpMessage;
+      explainBox.hidden = false;
+      
+      // Temporarily highlight the clicked cell
+      const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
+      const targetCell = minuendCells.find(cell => parseInt(cell.dataset.columnIndex) === columnIndex);
+      if (targetCell) {
+        targetCell.classList.add('borrowed-indicator');
+        setTimeout(() => targetCell.classList.remove('borrowed-indicator'), 2000);
+      }
+    }
+
+    // Analyze subtraction errors to provide specific feedback
+    function analyzeSubtractionErrors(userDigits, expectedDigits, minuend, subtrahend, digits) {
+      const errors = [];
+      let borrow = 0;
+      const placeNames = ['ones', 'tens', 'hundreds', 'thousands'];
+      
+      for(let i = 0; i < digits; i++) {
+        let da = Math.floor(minuend / Math.pow(10, i)) % 10;
+        const db = Math.floor(subtrahend / Math.pow(10, i)) % 10;
+        
+        da -= borrow;
+        const needsBorrow = da < db;
+        
+        // Check if user's digit is wrong
+        if(userDigits[i] !== expectedDigits[i]) {
+          const placeName = placeNames[i] || `${i+1}-place`;
+          
+          if(needsBorrow && userDigits[i] === (da - db)) {
+            // User subtracted without borrowing
+            errors.push(`${placeName}: You forgot to borrow! ${da} < ${db}, so you need to borrow from the ${placeNames[i + 1] || 'next'} place.`);
+          } else if(needsBorrow) {
+            const correctValue = (da + 10) - db;
+            errors.push(`${placeName}: After borrowing, ${da} becomes ${da + 10}. ${da + 10} - ${db} = ${correctValue}`);
+          } else {
+            errors.push(`${placeName}: Expected ${expectedDigits[i]}, you wrote ${userDigits[i]}`);
+          }
+        }
+        
+        borrow = needsBorrow ? 1 : 0;
+      }
+      
+      return {
+        message: errors.length > 0 ? errors[0] : 'Not quite — try again.',
+        allErrors: errors
+      };
+    }
+
     function handleKeyNav(e){
       const idx = Number(e.target.dataset.idx);
       const inputs = Array.from(sumRow.querySelectorAll('input'));
@@ -807,7 +986,9 @@
           explainBox.hidden = false;
         }
       } else {
-        flashProblem('Not quite — press "Explain" for a guided step-by-step.', false);
+        // Use detailed error analysis for specific feedback
+        const errorDetails = analyzeSubtractionErrors(user, expected, state.a, state.b, state.digits);
+        flashProblem(errorDetails.message, false);
         state.streak = 0;
         streakEl.textContent = state.streak;
       }
@@ -846,9 +1027,13 @@
     function showExplanation(){
       const a = state.a, b = state.b, d = state.digits;
 
-      // Build a clear, ordered step list
+      // Build a clear, ordered step list with simple language
       const steps = [];
       let borrow = 0;
+      
+      // Add introductory text about borrowing
+      steps.push(`<strong style="color:var(--accent)">Remember:</strong> Borrowing = regrouping 1 ten into 10 ones. Always work right-to-left (ones → tens → hundreds).`);
+      
       for(let i=0;i<d;i++){
         const pow = Math.pow(10,i);
         let da = Math.floor(a/pow)%10;
@@ -858,18 +1043,23 @@
         da -= borrow; // apply previous borrow
         
         if(da < db){
-          steps.push(`Subtract the ${placeName}: ${da} - ${db}. Since ${da} < ${db}, borrow 1 from the next place (making it ${da + 10}).`);
+          steps.push(`<strong>${placeName.charAt(0).toUpperCase() + placeName.slice(1)}:</strong> ${da} - ${db}? Too small! Borrow 1 from the ${i===0 ? "tens" : i===1 ? "hundreds" : i===2 ? "thousands" : "next"} place. ${da} becomes ${da + 10}. Now ${da + 10} - ${db} = ${(da + 10) - db}.`);
           borrow = 1;
         } else {
-          steps.push(`Subtract the ${placeName}: ${da} - ${db}` + (borrow? ` (after borrowing)`:`.`));
+          const result = da - db;
+          if(borrow > 0) {
+            steps.push(`<strong>${placeName.charAt(0).toUpperCase() + placeName.slice(1)}:</strong> After borrowing: ${da} - ${db} = ${result}.`);
+          } else {
+            steps.push(`<strong>${placeName.charAt(0).toUpperCase() + placeName.slice(1)}:</strong> ${da} - ${db} = ${result}.`);
+          }
           borrow = 0;
         }
       }
 
       // Render as an ordered list
-      explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Step-by-step</div><ol class="step-list">` +
-        steps.map(s => `<li>${s}</li>`).join('') +
-        `</ol>`;
+      explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Step-by-step</div><div class="step-list" style="list-style:none;padding-left:0">` +
+        steps.map(s => `<li style="margin:8px 0">${s}</li>`).join('') +
+        `</div>`;
 
       explainBox.hidden = false;
 
@@ -1472,6 +1662,79 @@
         renderProblem();
       }
     });
+
+    // Tutorial functionality
+    const startTutorialBtn = document.getElementById('startTutorialBtn');
+    startTutorialBtn.addEventListener('click', startTutorial);
+
+    function startTutorial() {
+      const overlay = document.createElement('div');
+      overlay.className = 'tutorial-overlay';
+      overlay.innerHTML = `
+        <div class="tutorial-content">
+          <h2>📚 Subtraction with Regrouping (Borrowing)</h2>
+          
+          <p>Learn how to subtract when the top number is smaller than the bottom number in a column.</p>
+          
+          <div class="tutorial-step">
+            <strong>Step 1: Start with the Ones Place (Rightmost Column)</strong>
+            Always begin at the rightmost column and work left (ones → tens → hundreds).
+          </div>
+          
+          <div class="tutorial-step">
+            <strong>Step 2: Check If You Need to Borrow</strong>
+            If the top number is smaller than the bottom number, you need to borrow.<br>
+            Example: In 52 - 37, the ones column has 2 - 7. Since 2 < 7, we need to borrow.
+          </div>
+          
+          <div class="tutorial-step">
+            <strong>Step 3: Borrowing = Regrouping 1 Ten into 10 Ones</strong>
+            When you borrow:<br>
+            • Take 1 from the tens place (5 becomes 4)<br>
+            • Add 10 to the ones place (2 becomes 12)<br>
+            • Now subtract: 12 - 7 = 5
+          </div>
+          
+          <div class="tutorial-step">
+            <strong>Step 4: Move to the Next Column</strong>
+            After subtracting the ones, move left to the tens column.<br>
+            Remember: The tens digit is now reduced by 1 (from borrowing).<br>
+            Example: 4 - 3 = 1
+          </div>
+          
+          <div class="tutorial-step">
+            <strong>Visual Example: 52 - 37</strong>
+            <pre style="color: var(--accent); font-size: 16px; margin: 8px 0;">
+  ⁴⁵₁₂  ← After borrowing: 5→4, 2→12
+   52
+ - 37
+ ----
+   15  ← Answer: ones=5, tens=1
+            </pre>
+          </div>
+          
+          <div class="tutorial-step">
+            <strong>💡 Tips for Success</strong>
+            • Click any top number to see if borrowing is needed<br>
+            • Always work right-to-left (column by column)<br>
+            • Enter borrows in the small boxes above to track your work<br>
+            • Use "Explain" button if you get stuck
+          </div>
+          
+          <div class="tutorial-controls">
+            <button class="btn" onclick="this.closest('.tutorial-overlay').remove()">Start Practicing!</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      
+      // Close on click outside content
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.remove();
+        }
+      });
+    }
 
     // keyboard: Enter on page triggers check when focused on non-inputs (conservative)
     document.addEventListener('keydown', (e) => {
