@@ -165,7 +165,19 @@
       border:1px dashed rgba(255,255,255,0.05); color:inherit; height:44px;
     }
 
-    .separator{height:2px;background:linear-gradient(90deg,var(--accent),transparent);margin:6px 0;border-radius:2px}
+    .separator{
+      height:2px;background:linear-gradient(90deg,var(--accent),transparent);margin:6px 0;border-radius:2px;
+      position:relative;
+    }
+    .separator::before{
+      content:'−'; /* minus sign */
+      position:absolute;
+      left:-2em; /* font-size-relative positioning */
+      top:-0.5em;
+      font-size:1.5em;
+      color:var(--accent);
+      font-weight:700;
+    }
 
     .sum-row{display:flex;gap:6px;align-items:center}
     .hint{font-size:13px;color:var(--muted);margin-top:8px}
@@ -291,25 +303,6 @@
       justify-content: flex-end;
     }
 
-    /* Ten-frame helper (two frames per column, stacked vertically) */
-    .tenframes { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
-    .tenframe { display:flex; gap:12px; align-items:flex-start; cursor:pointer; user-select:none; padding:6px; border-radius:8px; }
-    .tenframe-label { width:64px; font-size:13px; color:var(--muted); flex: 0 0 64px; }
-    .tf-pair { display:flex; flex-direction:column; gap:8px; align-items:flex-start; }
-    .tf { display:flex; flex-direction:column; gap:6px; background:rgba(255,255,255,0.01); padding:6px; border-radius:6px; }
-    .tf-row { display:flex; gap:6px; }
-    .tf-box {
-      width:26px; height:26px; border-radius:6px;
-      border:1px solid rgba(255,255,255,0.04);
-      background:transparent; display:flex; align-items:center; justify-content:center;
-    }
-    .dot { width:12px; height:12px; border-radius:50%; opacity:0; transform:translateY(-6px); transition:all 260ms ease; }
-    .dot.filled { opacity:1; transform:translateY(0); }
-    .dot.a { background: linear-gradient(90deg,#ffd27c,#ffb86b); } /* minuend color */
-    .dot.b { background: linear-gradient(90deg,#22d3ee,#7c3aed); } /* subtrahend color */
-    .tf-caption { margin-top:6px; font-size:13px; color:var(--muted); }
-    .tenframe:focus { outline:2px solid rgba(34,211,238,0.12); border-radius:8px; }
-
     /* timer */
     .timer-badge{
       background:rgba(255,255,255,0.03);
@@ -391,14 +384,26 @@
     </div>
 
     <div class="layout" style="margin-top:18px">
-      <!-- LEFT: ten-frame helper -->
+      <!-- LEFT: subtraction helper -->
       <aside class="card" aria-labelledby="helpers-heading">
         <h4 id="helpers-heading" style="margin-top:0">Helpers</h4>
 
-        <!-- Ten-frame helper -->
-        <div id="tenFrameWrap" style="margin-top:6px">
-          <h4 style="margin:6px 0 8px;font-size:14px">Ten-frame helper</h4>
-          <div id="tenFrames" class="tenframes"></div>
+        <!-- Subtraction helper -->
+        <div id="subtractionHelper" style="margin-top:6px">
+          <h4 style="margin:6px 0 8px;font-size:14px">Borrowing Guide</h4>
+          <div style="font-size:13px;color:var(--muted);line-height:1.6">
+            <p style="margin:8px 0"><strong style="color:var(--accent)">Steps for Borrowing:</strong></p>
+            <ol style="padding-left:20px;margin:8px 0">
+              <li style="margin:6px 0">Work from right to left (ones to tens to hundreds)</li>
+              <li style="margin:6px 0">If top digit &lt; bottom digit, borrow from the left</li>
+              <li style="margin:6px 0">Enter "1" in the borrow box above the column</li>
+              <li style="margin:6px 0">The borrowed 1 becomes 10 in that place</li>
+              <li style="margin:6px 0">Reduce the digit you borrowed from by 1</li>
+            </ol>
+            <p style="margin:12px 0 0;padding:8px;background:rgba(34,211,238,0.05);border-radius:6px;border-left:3px solid var(--accent)">
+              <strong>Tip:</strong> Click the "Explain" button below for step-by-step guidance!
+            </p>
+          </div>
         </div>
       </aside>
 
@@ -724,7 +729,7 @@
         cellA.style.cursor = 'pointer';
         cellA.innerHTML = `<span class="digit-display">${da}</span>`;
         cellA.addEventListener('click', () => showBorrowingHelp(i, da, db));
-        cellA.setAttribute('title', 'Click to see borrowing explanation for this digit');
+        cellA.setAttribute('title', 'Click for visual feedback');
         
         const cellB = document.createElement('div'); 
         cellB.className='digit-cell'; 
@@ -771,9 +776,6 @@
         const inputs = sumRow.querySelectorAll('input');
         if(inputs.length) inputs[0].focus();
       }, 50);
-
-      // render ten-frames for the current problem (new helper)
-      renderTenFrameHelper();
     }
 
     // Update the visual display of minuend digits when borrows are entered
@@ -781,25 +783,25 @@
       const borrowInputs = Array.from(carryRow.querySelectorAll('input'));
       const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
       
-      // Because of row-reverse, cells are in visual order: ones, tens, hundreds
-      // borrowInputs[0] is placeholder (leftmost visually)
-      // borrowInputs[1] corresponds to column 0 (ones place)
-      // borrowInputs[2] corresponds to column 1 (tens place), etc.
+      // borrowInputs only contains INPUT elements (querySelectorAll skips the placeholder DIV)
+      // The carry row has a DIV placeholder at index 0 in the DOM, but borrowInputs starts with the first input
+      // borrowInputs[0] corresponds to column 0 (ones place)
+      // borrowInputs[1] corresponds to column 1 (tens place), etc.
       
       // Update each minuend cell based on borrowing
       minuendCells.forEach((cell, visualIdx) => {
         const originalDigit = cell.dataset.originalDigit;
         const columnIndex = parseInt(cell.dataset.columnIndex); // actual place value index
         
-        // Check if this column has a borrow entered (borrowInputs[columnIndex + 1])
-        const borrowInputIdx = columnIndex + 1;
-        const hasBorrow = borrowInputIdx < borrowInputs.length && 
-                         borrowInputs[borrowInputIdx].value === '1';
+        // Check if this column has a borrow entered
+        const hasBorrow = columnIndex < borrowInputs.length && 
+                         borrowInputs[columnIndex].value === '1';
         
-        // Check if next column borrowed from this one
-        const nextColumnBorrowIdx = columnIndex + 2; // next column's borrow input
-        const wasBorrowedFrom = nextColumnBorrowIdx < borrowInputs.length && 
-                                borrowInputs[nextColumnBorrowIdx].value === '1';
+        // Check if previous column borrowed from this one
+        // (borrowInputs[columnIndex-1] = '1' means column columnIndex-1 borrowed, taking from column columnIndex)
+        const prevColumnIdx = columnIndex - 1;
+        const wasBorrowedFrom = prevColumnIdx >= 0 && prevColumnIdx < borrowInputs.length && 
+                                borrowInputs[prevColumnIdx].value === '1';
         
         if (wasBorrowedFrom && hasBorrow) {
           // Both borrowed from AND borrowed to: show crossed out original, and regrouped value
@@ -831,38 +833,9 @@
       });
     }
 
-    // Show borrowing help when a minuend cell is clicked
+    // Highlight cell when clicked (provides visual feedback)
     function showBorrowingHelp(columnIndex, digitValue, subtrahendDigit) {
-      const placeNames = ['ones', 'tens', 'hundreds', 'thousands'];
-      const placeName = placeNames[columnIndex] || `${columnIndex+1}-place`;
-      
-      // Check if borrowing is needed for this column
-      const needsBorrow = digitValue < subtrahendDigit;
-      
-      let helpMessage = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Help: ${placeName.charAt(0).toUpperCase() + placeName.slice(1)} column</div>`;
-      
-      if (needsBorrow) {
-        helpMessage += `<div class="tutorial-step">
-          <strong>Borrowing needed!</strong>
-          ${digitValue} is less than ${subtrahendDigit}, so we need to borrow.<br><br>
-          <strong>Steps:</strong><br>
-          1. Borrow 1 from the ${placeNames[columnIndex + 1] || 'next'} place<br>
-          2. That 1 becomes 10 in this column<br>
-          3. ${digitValue} + 10 = ${digitValue + 10}<br>
-          4. Now subtract: ${digitValue + 10} - ${subtrahendDigit} = ${digitValue + 10 - subtrahendDigit}
-        </div>`;
-      } else {
-        helpMessage += `<div class="tutorial-step">
-          <strong>No borrowing needed</strong>
-          ${digitValue} is greater than or equal to ${subtrahendDigit}.<br><br>
-          Simply subtract: ${digitValue} - ${subtrahendDigit} = ${digitValue - subtrahendDigit}
-        </div>`;
-      }
-      
-      explainText.innerHTML = helpMessage;
-      explainBox.hidden = false;
-      
-      // Temporarily highlight the clicked cell
+      // Temporarily highlight the clicked cell to show it was clicked
       const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
       const targetCell = minuendCells.find(cell => parseInt(cell.dataset.columnIndex) === columnIndex);
       if (targetCell) {
@@ -1347,174 +1320,6 @@
     }
 
     //
-    // Ten-frame helper: draw one TWO-frame pair per place and animate on click
-    //
-    function renderTenFrameHelper(){
-      const container = document.getElementById('tenFrames');
-      container.innerHTML = '';
-
-      // If no current problem, show a short prompt
-      if (typeof state.a !== 'number' || typeof state.b !== 'number') {
-        container.textContent = 'Generate a problem to see ten-frames.';
-        return;
-      }
-
-      // Show a frame pair only for the places in use
-      for (let col = 0; col < state.digits; col++) {
-        const frameRow = document.createElement('div');
-        frameRow.className = 'tenframe';
-        frameRow.tabIndex = 0;
-        frameRow.setAttribute('role', 'button');
-
-        // place label mapping (include thousands for 4th place)
-        const labelText = col === 0 ? 'Ones' : col === 1 ? 'Tens' : col === 2 ? 'Hundreds' : col === 3 ? 'Thousands' : (col+1)+'-place';
-        frameRow.setAttribute('aria-label', `Ten-frames for ${labelText.toLowerCase()}`);
-
-        const label = document.createElement('div');
-        label.className = 'tenframe-label';
-        label.textContent = labelText;
-
-        const rightCol = document.createElement('div');
-        rightCol.style.display = 'flex';
-        rightCol.style.flexDirection = 'column';
-        rightCol.style.gap = '8px';
-
-        const pair = document.createElement('div');
-        pair.className = 'tf-pair';
-
-        const tf1 = document.createElement('div');
-        tf1.className = 'tf';
-        const r1a = document.createElement('div'); r1a.className = 'tf-row';
-        const r1b = document.createElement('div'); r1b.className = 'tf-row';
-        for (let i = 0; i < 10; i++) {
-          const box = document.createElement('div');
-          box.className = 'tf-box';
-          const dot = document.createElement('div');
-          dot.className = 'dot';
-          box.appendChild(dot);
-          if (i < 5) r1a.appendChild(box); else r1b.appendChild(box);
-        }
-        tf1.appendChild(r1a); tf1.appendChild(r1b);
-
-        const tf2 = document.createElement('div');
-        tf2.className = 'tf';
-        const r2a = document.createElement('div'); r2a.className = 'tf-row';
-        const r2b = document.createElement('div'); r2b.className = 'tf-row';
-        for (let i = 0; i < 10; i++) {
-          const box = document.createElement('div');
-          box.className = 'tf-box';
-          const dot = document.createElement('div');
-          dot.className = 'dot';
-          box.appendChild(dot);
-          if (i < 5) r2a.appendChild(box); else r2b.appendChild(box);
-        }
-        tf2.appendChild(r2a); tf2.appendChild(r2b);
-
-        pair.appendChild(tf1);
-        pair.appendChild(tf2);
-
-        const caption = document.createElement('div');
-        caption.className = 'tf-caption';
-        caption.textContent = '';
-
-        rightCol.appendChild(pair);
-        rightCol.appendChild(caption);
-
-        frameRow.appendChild(label);
-        frameRow.appendChild(rightCol);
-
-        // click + keyboard activation
-        frameRow.addEventListener('click', () => animateTenFramePair(col));
-        frameRow.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); animateTenFramePair(col); } });
-
-        container.appendChild(frameRow);
-      }
-    }
-
-    // Animate two ten-frames for a column (stacked visual) - SUBTRACTION VERSION
-    function animateTenFramePair(col){
-      const container = document.getElementById('tenFrames');
-      const frameRow = container.children[col];
-      if(!frameRow) return;
-
-      const rightCol = frameRow.querySelector('div[style*="flex-direction"]') || frameRow.children[1];
-      if(!rightCol) return;
-      const pair = rightCol.querySelector('.tf-pair');
-      if(!pair) return;
-      const tf1Dots = Array.from(pair.children[0].querySelectorAll('.tf-box .dot'));
-      const tf2Dots = Array.from(pair.children[1].querySelectorAll('.tf-box .dot'));
-      const caption = rightCol.querySelector('.tf-caption');
-
-      // reset
-      tf1Dots.forEach(d => { d.className = 'dot'; });
-      tf2Dots.forEach(d => { d.className = 'dot'; });
-      caption.textContent = 'Visualizing...';
-
-      const pow = Math.pow(10, col);
-      let minuend = Math.floor(state.a / pow) % 10;
-      const subtrahend = Math.floor(state.b / pow) % 10;
-
-      // Check if we need to borrow
-      const needsBorrow = minuend < subtrahend;
-      let borrowed = 0;
-      
-      if (needsBorrow) {
-        borrowed = 10;
-        minuend += 10;
-      }
-
-      // First, show the minuend (gold dots)
-      const totalToShow = Math.min(minuend, 20); // can be more than 10 if borrowed
-      const inFirstFrame = Math.min(totalToShow, 10);
-      const inSecondFrame = totalToShow - inFirstFrame;
-
-      // animate minuend in first frame
-      for (let i = 0; i < inFirstFrame; i++) {
-        setTimeout(((idx) => () => { tf1Dots[idx].classList.add('filled','a'); })(i), i * 55);
-      }
-
-      // if borrowed, show extra 10 in second frame
-      for (let j = 0; j < inSecondFrame; j++) {
-        setTimeout(((idx) => () => { tf2Dots[idx].classList.add('filled','a'); })(j), (inFirstFrame + j) * 55 + 80);
-      }
-
-      // Now remove (fade out) the subtrahend amount (blue -> removed)
-      const removeDelay = totalToShow * 55 + 300;
-      for (let k = 0; k < subtrahend; k++) {
-        setTimeout(((idx) => () => {
-          if (idx < 10) {
-            tf1Dots[idx].classList.remove('a');
-            tf1Dots[idx].classList.add('b'); // change to blue briefly
-            setTimeout(() => { tf1Dots[idx].classList.remove('filled'); }, 100);
-          } else {
-            tf2Dots[idx-10].classList.remove('a');
-            tf2Dots[idx-10].classList.add('b');
-            setTimeout(() => { tf2Dots[idx-10].classList.remove('filled'); }, 100);
-          }
-        })(k), removeDelay + k * 55);
-      }
-
-      // Show explanation
-      const finalDelay = removeDelay + subtrahend * 55 + 300;
-      setTimeout(() => {
-        const placeName = col === 0 ? 'ones' : col === 1 ? 'tens' : col === 2 ? 'hundreds' : col === 3 ? 'thousands' : `${col+1}-place`;
-        const lines = [];
-        const originalMinuend = Math.floor(state.a / pow) % 10;
-        if (needsBorrow) {
-          lines.push(`Looking at the ${placeName} column: ${originalMinuend} is less than ${subtrahend}, so we borrow 10 from the next place, making it ${minuend}.`);
-        } else {
-          lines.push(`Looking at the ${placeName} column: we start with ${minuend} (shown in gold).`);
-        }
-        lines.push(`We remove ${subtrahend} (shown briefly in blue before disappearing).`);
-        lines.push(`What remains is the answer for this place value.`);
-
-        explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Ten-frames — ${placeName}</div><ol class="step-list">${lines.map(s => `<li>${s}</li>`).join('')}</ol>`;
-        explainBox.hidden = false;
-
-        caption.textContent = '';
-      }, finalDelay);
-    }
-
     //
     // Challenge timer helpers
     //
