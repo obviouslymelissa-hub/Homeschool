@@ -166,14 +166,18 @@
     }
 
     .separator{
-      height:2px;background:linear-gradient(90deg,var(--accent),transparent);margin:6px 0;border-radius:2px;
-      position:relative;
+      height:2px;
+      background:linear-gradient(90deg,var(--accent),transparent);
+      margin:6px 0;
+      border-radius:2px;
+      position:relative; /* ensure pseudo-element is positioned from here */
     }
     .separator::before{
       content:'−'; /* minus sign */
       position:absolute;
-      left:-2em; /* font-size-relative positioning */
-      top:-0.5em;
+      left:50%;
+      transform:translateX(-50%);
+      top:-0.55em; /* tweak as needed */
       font-size:1.5em;
       color:var(--accent);
       font-weight:700;
@@ -506,6 +510,8 @@
     const progBar = document.getElementById('progBar');
     const sessionInfo = document.getElementById('sessionInfo');
 
+    const startTutorialBtn = document.getElementById('startTutorialBtn');
+
     let state = {
       a: null,
       b: null,
@@ -617,6 +623,11 @@
       modeLabel.textContent = 'Practice';
       digitsSelect.disabled = false;
 
+      // Stop any challenge timer
+      stopChallengeTimer();
+      timerWrap.style.display = 'none';
+      retryBtn.style.display = 'none';
+
       // Generate first problem
       newProblem();
     }
@@ -697,8 +708,8 @@
           carryInput.pattern = '[0-9]*';
           carryInput.className = 'carry-input';
           carryInput.maxLength = 1; // limit to one digit
-          carryInput.dataset.idx = j;
-          carryInput.setAttribute('aria-label','borrow for column '+(j+1));
+          carryInput.dataset.idx = j - 1; // match column index
+          carryInput.setAttribute('aria-label','borrow for column '+(j));
           carryInput.addEventListener('input', e => {
             e.target.value = e.target.value.replace(/\D/g, '').slice(0,1);
             updateBorrowVisualization();
@@ -728,8 +739,8 @@
         cellA.dataset.columnIndex = i;
         cellA.style.cursor = 'pointer';
         cellA.innerHTML = `<span class="digit-display">${da}</span>`;
-        cellA.addEventListener('click', () => showBorrowingHelp(i, da, db));
-        cellA.setAttribute('title', 'Click for visual feedback');
+        cellA.addEventListener('click', () => handleBorrowClick(i, da, db));
+        cellA.setAttribute('title', 'Click to borrow from this digit');
         
         const cellB = document.createElement('div'); 
         cellB.className='digit-cell'; 
@@ -783,43 +794,40 @@
       const borrowInputs = Array.from(carryRow.querySelectorAll('input'));
       const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
       
-      // borrowInputs only contains INPUT elements (querySelectorAll skips the placeholder DIV)
-      // The carry row has a DIV placeholder at index 0 in the DOM, but borrowInputs starts with the first input
       // borrowInputs[0] corresponds to column 0 (ones place)
       // borrowInputs[1] corresponds to column 1 (tens place), etc.
       
       // Update each minuend cell based on borrowing
-      minuendCells.forEach((cell, visualIdx) => {
+      minuendCells.forEach((cell) => {
         const originalDigit = cell.dataset.originalDigit;
-        const columnIndex = parseInt(cell.dataset.columnIndex); // actual place value index
+        const columnIndex = parseInt(cell.dataset.columnIndex, 10); // actual place value index
         
-        // Check if this column has a borrow entered
-        const hasBorrow = columnIndex < borrowInputs.length && 
-                         borrowInputs[columnIndex].value === '1';
+        // Check if this column has a borrow entered (borrow *from* this column to its right)
+        const hasBorrowFromThis = columnIndex < borrowInputs.length && 
+                                  borrowInputs[columnIndex].value === '1';
         
-        // Check if previous column borrowed from this one
-        // (borrowInputs[columnIndex-1] = '1' means column columnIndex-1 borrowed, taking from column columnIndex)
+        // Check if previous column borrowed to this one
         const prevColumnIdx = columnIndex - 1;
-        const wasBorrowedFrom = prevColumnIdx >= 0 && prevColumnIdx < borrowInputs.length && 
+        const hasBorrowToThis = prevColumnIdx >= 0 && prevColumnIdx < borrowInputs.length && 
                                 borrowInputs[prevColumnIdx].value === '1';
         
-        if (wasBorrowedFrom && hasBorrow) {
+        if (hasBorrowFromThis && hasBorrowToThis) {
           // Both borrowed from AND borrowed to: show crossed out original, and regrouped value
-          const reducedDigit = parseInt(originalDigit) - 1;
+          const reducedDigit = parseInt(originalDigit,10) - 1;
           cell.innerHTML = `
             <span class="crossed-out">${originalDigit}</span>
             <div class="regrouped-value">
               <span class="borrowed-prefix">1</span>${reducedDigit}
             </div>
           `;
-        } else if (wasBorrowedFrom) {
+        } else if (hasBorrowFromThis) {
           // Only borrowed from: show crossed out original and reduced digit
-          const reducedDigit = parseInt(originalDigit) - 1;
+          const reducedDigit = parseInt(originalDigit,10) - 1;
           cell.innerHTML = `
             <span class="crossed-out">${originalDigit}</span>
             <span class="digit-display">${reducedDigit}</span>
           `;
-        } else if (hasBorrow) {
+        } else if (hasBorrowToThis) {
           // Only borrowed to: show small "1" prefix with original digit
           cell.innerHTML = `
             <div class="regrouped-value">
@@ -833,14 +841,25 @@
       });
     }
 
-    // Highlight cell when clicked (provides visual feedback)
-    function showBorrowingHelp(columnIndex, digitValue, subtrahendDigit) {
-      // Temporarily highlight the clicked cell to show it was clicked
+    // Handle clicking on a top digit to toggle borrow for that column
+    function handleBorrowClick(columnIndex, digitValue, subtrahendDigit) {
+      const borrowInputs = Array.from(carryRow.querySelectorAll('input'));
+      if (columnIndex < 0 || columnIndex >= borrowInputs.length) return;
+
+      const targetBorrowInput = borrowInputs[columnIndex];
+
+      // Toggle between "1" (borrow) and "" (no borrow)
+      targetBorrowInput.value = targetBorrowInput.value === '1' ? '' : '1';
+
+      // Update the visual borrowing display on the digits
+      updateBorrowVisualization();
+
+      // Brief highlight for feedback
       const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
-      const targetCell = minuendCells.find(cell => parseInt(cell.dataset.columnIndex) === columnIndex);
+      const targetCell = minuendCells.find(cell => parseInt(cell.dataset.columnIndex, 10) === columnIndex);
       if (targetCell) {
         targetCell.classList.add('borrowed-indicator');
-        setTimeout(() => targetCell.classList.remove('borrowed-indicator'), 2000);
+        setTimeout(() => targetCell.classList.remove('borrowed-indicator'), 600);
       }
     }
 
@@ -848,7 +867,7 @@
     function analyzeSubtractionErrors(userDigits, expectedDigits, minuend, subtrahend, digits) {
       const errors = [];
       let borrow = 0;
-      const placeNames = ['ones', 'tens', 'hundreds', 'thousands'];
+      const placeNames = ['ones', 'tens', 'hundreds', 'thousands', 'ten-thousands'];
       
       for(let i = 0; i < digits; i++) {
         let da = Math.floor(minuend / Math.pow(10, i)) % 10;
@@ -866,9 +885,9 @@
             errors.push(`${placeName}: You forgot to borrow! ${da} < ${db}, so you need to borrow from the ${placeNames[i + 1] || 'next'} place.`);
           } else if(needsBorrow) {
             const correctValue = (da + 10) - db;
-            errors.push(`${placeName}: After borrowing, ${da} becomes ${da + 10}. ${da + 10} - ${db} = ${correctValue}`);
+            errors.push(`${placeName}: After borrowing, ${da} becomes ${da + 10}. ${da + 10} - ${db} = ${correctValue}.`);
           } else {
-            errors.push(`${placeName}: Expected ${expectedDigits[i]}, you wrote ${userDigits[i]}`);
+            errors.push(`${placeName}: Expected ${expectedDigits[i]}, you wrote ${userDigits[i]}.`);
           }
         }
         
@@ -909,7 +928,7 @@
     }
     function getCarryInputsSnapshot(){
       const cells = Array.from(carryRow.children);
-      // now we don't use dataset.autovalue; snapshot returns whatever user typed
+      // snapshot returns whatever user typed
       return cells.map(cell => {
         if(cell.tagName === 'INPUT'){
           return cell.value || '';
@@ -955,7 +974,10 @@
         // If in challenge, stop timer and mark success
         if(state.inChallenge){
           stopChallengeTimer();
-          explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Challenge</div><div class="step-list"><strong style="color:var(--good)">Passed!</strong> You solved the 5-digit regroup problem within the time limit.</div>`;
+          explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Challenge</div>
+<div class="step-list">
+<strong style="color:var(--good)">Passed!</strong> You solved the 5-digit regrouping problem within the time limit.
+</div>`;
           explainBox.hidden = false;
         }
       } else {
@@ -998,577 +1020,279 @@
     }
 
     function showExplanation(){
-      const a = state.a, b = state.b, d = state.digits;
+      const d = state.digits;
+      const a = state.a;
+      const b = state.b;
 
-      // Build a clear, ordered step list with simple language
+      if(a == null || b == null) return;
+
       const steps = [];
+      steps.push(`We are subtracting ${b} from ${a}. Remember to work from right (ones) to left.`);
+
       let borrow = 0;
-      
-      // Add introductory text about borrowing
-      steps.push(`<strong style="color:var(--accent)">Remember:</strong> Borrowing = regrouping 1 ten into 10 ones. Always work right-to-left (ones → tens → hundreds).`);
-      
       for(let i=0;i<d;i++){
         const pow = Math.pow(10,i);
         let da = Math.floor(a/pow)%10;
         const db = Math.floor(b/pow)%10;
-        const placeName = i===0 ? "ones" : i===1 ? "tens" : i===2 ? "hundreds" : i===3 ? "thousands" : `${i+1}-place`;
-        
-        da -= borrow; // apply previous borrow
-        
+        const placeNames = ['ones','tens','hundreds','thousands','ten-thousands'];
+        const place = placeNames[i] || `place ${i+1}`;
+
+        da -= borrow;
         if(da < db){
-          steps.push(`<strong>${placeName.charAt(0).toUpperCase() + placeName.slice(1)}:</strong> ${da} - ${db}? Too small! Borrow 1 from the ${i===0 ? "tens" : i===1 ? "hundreds" : i===2 ? "thousands" : "next"} place. ${da} becomes ${da + 10}. Now ${da + 10} - ${db} = ${(da + 10) - db}.`);
+          steps.push(`In the ${place} column: ${da} is less than ${db}, so we borrow 1 from the next column to the left.`);
+          steps.push(`That makes this column ${da + 10}. Now we do ${da + 10} − ${db}.`);
           borrow = 1;
         } else {
-          const result = da - db;
-          if(borrow > 0) {
-            steps.push(`<strong>${placeName.charAt(0).toUpperCase() + placeName.slice(1)}:</strong> After borrowing: ${da} - ${db} = ${result}.`);
-          } else {
-            steps.push(`<strong>${placeName.charAt(0).toUpperCase() + placeName.slice(1)}:</strong> ${da} - ${db} = ${result}.`);
-          }
+          steps.push(`In the ${place} column: we can subtract directly: ${da} − ${db}.`);
           borrow = 0;
         }
       }
 
-      // Render as an ordered list
-      explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Step-by-step</div><div class="step-list" style="list-style:none;padding-left:0">` +
-        steps.map(s => `<li style="margin:8px 0">${s}</li>`).join('') +
-        `</div>`;
+      const result = a - b;
+      steps.push(`Finally, the answer is ${result}.`);
 
+      explainText.innerHTML = steps.map(s => `• ${s}`).join('\n');
       explainBox.hidden = false;
-
-      // Highlight borrow boxes (suggestion) but do NOT write values into them
-      const borrows = computeBorrows(state.a, state.b, d); // length d
-      const borrowCells = Array.from(carryRow.children);
-      for(let j=0;j<borrowCells.length;j++){
-        const fromIndex = j-1; // map carryRow[1] => borrow for column 0
-        const cell = borrowCells[j];
-        if(cell.tagName === 'INPUT'){
-          // remove previous suggestion state
-          cell.classList.remove('suggest');
-          if(fromIndex >= 0 && fromIndex < borrows.length && borrows[fromIndex]){
-            // visually suggest a borrow without changing input value
-            cell.classList.add('suggest');
-            cell.setAttribute('aria-label', `Suggested borrow ${borrows[fromIndex]} for column ${fromIndex+1}`);
-          } else {
-            // ensure label falls back
-            cell.setAttribute('aria-label', `borrow for column ${j+1}`);
-          }
-        }
-      }
     }
 
-    function confetti(){
-      const count = 18;
-      const container = document.createElement('div');
-      container.style.position='fixed'; container.style.left=0; container.style.top=0; container.style.width='100%'; container.style.height='100%';
-      container.style.pointerEvents='none'; container.style.overflow='hidden';
-      document.body.appendChild(container);
-      for(let i=0;i<count;i++){
-        const el = document.createElement('div');
-        const size = randInt(8,16);
-        el.style.width = size+'px'; el.style.height = size+'px';
-        el.style.position='absolute';
-        el.style.left = randInt(10,90)+'%';
-        el.style.top = '-10px';
-        el.style.background = i%2? 'linear-gradient(90deg,#22d3ee,#7c3aed)':'linear-gradient(90deg,#ffd27c,#ffb86b)';
-        el.style.opacity = Math.random()*0.95+0.2;
-        el.style.transform = 'rotate('+randInt(0,360)+'deg)';
-        el.style.borderRadius = '2px';
-        el.style.zIndex = 9999;
-        container.appendChild(el);
-        const fall = randInt(800,1600);
-        el.animate([
-          { transform:`translateY(0) rotate(${randInt(0,360)}deg)`, opacity:1 },
-          { transform:`translateY(${window.innerHeight + 80}px) rotate(${randInt(360,720)}deg)`, opacity:0.8 }
-        ], { duration: fall, easing:'cubic-bezier(.2,.8,.2,1)' });
+    function newProblem(){
+      // If challenge is active, we do not change digitsSelect, we already set challenge digits
+      if(!state.inChallenge){
+        state.digits = parseInt(digitsSelect.value,10);
       }
-      setTimeout(()=>{ document.body.removeChild(container); }, 1800);
+
+      const {a,b} = makeAddends(state.digits);
+      state.a = a;
+      state.b = b;
+      state.asked++;
+      askedEl.textContent = state.asked;
+      state.current = null;
+
+      renderProblem();
+      problemHint.textContent = 'Fill in your answer and press "Check".';
+
+      updateProgress();
+      saveStateToLocalStorage();
     }
 
-    function updateProgress(){
-      const total = state.sessionTotal;
-      const done = state.sessionDone;
-      const pct = Math.min(100, Math.round((done/total)*100));
-      progBar.style.width = pct + '%';
-      sessionInfo.textContent = `Session: ${done} / ${total} done.`;
-      if(done >= total && !state.inChallenge){
-        setTimeout(()=>{ alert(`Session complete! Problems asked: ${state.asked}. Correct: ${state.correct}.`); }, 300);
-      }
-    }
-
-    function finalizeCurrentProblem(wasCorrect){
-      if(!state.current || state.current.finalized) return;
-      const it = state.current;
-      const d = it.digits;
-      const expectedDigits = it.expectedDigits || computeDifferenceArrayFor(it.a, it.b, d);
-
-      // determine final carry inputs to save in solved list
-      let finalCarryInputs;
-      if(wasCorrect){
-        // compute true borrows and save them so PDF shows them
-        const carries = computeBorrows(it.a, it.b, d); // length d
-        finalCarryInputs = new Array(d+1).fill('');
-        for(let j=1;j<=d;j++){
-          const c = carries[j-1];
-          finalCarryInputs[j] = c ? String(c) : '';
-        }
-      } else {
-        // use whatever the user entered (if any)
-        finalCarryInputs = it.lastAttempt ? (it.lastAttempt.carryInputs.slice()) : new Array(d+1).fill('');
-      }
-
-      const finalUserDigitsRaw = it.lastAttempt ? it.lastAttempt.userDigitsRaw.slice() : Array(d+1).fill('');
-
-      state.solved.push({
-        a: it.a,
-        b: it.b,
-        digits: d,
-        expectedDigits: expectedDigits.slice(), // internal
-        finalCarryInputs,
-        finalUserDigitsRaw,
-        correct: !!wasCorrect,
-        attempts: it.attempts,
-        timestamp: new Date().toISOString()
-      });
-
-      it.finalized = true;
+    function finalizeCurrentProblem(correct){
+      if(!state.current) return;
+      state.current.finalized = true;
+      state.current.correct = !!correct;
+      state.current.endTime = new Date().toISOString();
+      state.solved.unshift(state.current); // newest at top
       state.sessionDone++;
       updateProgress();
       renderSolvedList();
-
       solvedCard.hidden = false;
-      // enable download if either we have enough saved problems OR we are in a challenge
-      downloadBtn.disabled = !(state.solved.length >= DOWNLOAD_THRESHOLD || state.inChallenge);
 
-      // Save to localStorage after finalizing
+      // Enable Next button
+      newBtn.disabled = false;
+
+      // Allow download if threshold met
+      downloadBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
+
       saveStateToLocalStorage();
-
-      // Keep Next disabled while in challenge; otherwise allow Next
-      if(!state.inChallenge){
-        setTimeout(()=>{ newBtn.disabled = false; }, 300);
-      } else {
-        newBtn.disabled = true;
-      }
     }
 
     function renderSolvedList(){
       solvedList.innerHTML = '';
-      const list = state.solved.slice().reverse();
-      list.forEach((it) => {
-        const div = document.createElement('div');
-        div.className = 'solved-item';
+      state.solved.forEach((item, index) => {
+        const container = document.createElement('div');
+        container.className = 'solved-item';
 
         const left = document.createElement('div');
-        const mini = document.createElement('div');
-        mini.className = 'vertical-add mini';
-
-        // Borrow row (saved finalCarryInputs) — add borrow cells first, placeholder last (aligns under row-reverse)
-        const carryRowMini = document.createElement('div');
-        carryRowMini.className = 'grid-row';
-        for(let j=1;j<=it.digits;j++){
-          const cell = document.createElement('div');
-          cell.className = 'carry-cell';
-          cell.textContent = (it.finalCarryInputs && typeof it.finalCarryInputs[j] !== 'undefined') ? it.finalCarryInputs[j] : '';
-          carryRowMini.appendChild(cell);
-        }
-        const ph = document.createElement('div');
-        ph.className = 'carry-placeholder';
-        carryRowMini.appendChild(ph);
-        mini.appendChild(carryRowMini);
-
-        // Addends rows
-        const rowA = document.createElement('div'); rowA.className = 'grid-row';
-        const rowB = document.createElement('div'); rowB.className = 'grid-row';
-        for(let i=0;i<it.digits;i++){
-          const da = Math.floor(it.a/Math.pow(10,i))%10;
-          const db = Math.floor(it.b/Math.pow(10,i))%10;
-          const cellA = document.createElement('div'); cellA.className='digit-cell'; cellA.textContent=da;
-          const cellB = document.createElement('div'); cellB.className='digit-cell'; cellB.textContent=db;
-          rowA.appendChild(cellA); rowB.appendChild(cellB);
-        }
-        mini.appendChild(rowA);
-        mini.appendChild(rowB);
-
-        const sep = document.createElement('div'); sep.className = 'separator';
-        mini.appendChild(sep);
-
-        // Sum row (typed-only)
-        const sumMini = document.createElement('div'); sumMini.className = 'grid-row';
-        for(let i=0;i<=it.digits;i++){
-          const cell = document.createElement('div'); cell.className='digit-cell';
-          cell.textContent = (it.finalUserDigitsRaw && typeof it.finalUserDigitsRaw[i] !== 'undefined') ? it.finalUserDigitsRaw[i] : '';
-          sumMini.appendChild(cell);
-        }
-        mini.appendChild(sumMini);
-
-        // Meta
-        const meta1 = document.createElement('div');
-        meta1.style.fontSize = '12px'; meta1.style.color = 'var(--muted)';
-        meta1.textContent = `${it.a} - ${it.b}`;
-        const meta2 = document.createElement('div');
-        meta2.style.fontSize = '12px'; meta2.style.color = 'var(--muted)';
-        meta2.textContent = `Attempts: ${it.attempts}`;
-        mini.appendChild(meta1);
-        mini.appendChild(meta2);
-
-        left.appendChild(mini);
+        left.innerHTML = `<div style="font-weight:600">${item.a} − ${item.b}</div>
+<div style="font-size:12px;color:var(--muted)">Attempts: ${item.attempts}</div>`;
 
         const right = document.createElement('div');
         right.className = 'right';
-        const status = document.createElement('div');
-        status.textContent = it.correct ? 'Correct' : 'Wrong';
-        status.className = it.correct ? 'solved-correct' : 'solved-wrong';
-        const time = document.createElement('div');
-        time.style.fontSize = '12px'; time.style.color = 'var(--muted)'; time.textContent = new Date(it.timestamp).toLocaleTimeString();
+        const status = document.createElement('span');
+        status.textContent = item.correct ? 'Correct' : 'Incorrect';
+        status.className = item.correct ? 'solved-correct' : 'solved-wrong';
         right.appendChild(status);
-        right.appendChild(time);
 
-        div.appendChild(left);
-        div.appendChild(right);
-        solvedList.appendChild(div);
+        container.appendChild(left);
+        container.appendChild(right);
+        solvedList.appendChild(container);
       });
     }
 
-    function downloadSolvedPDF(){
-      if(state.solved.length === 0){ alert('No solved problems yet.'); return; }
-
-      const printWindow = window.open('', '_blank', 'width=800,height=1000,scrollbars=yes');
-      if(!printWindow) {
-        alert('Unable to open print window (popup blocked).');
-        return;
-      }
-      const doc = printWindow.document;
-      const style = `
-        body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:20px}
-        h1{font-size:20px;margin-bottom:8px}
-        p{margin:0 0 12px}
-        .solv{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:10px}
-        .status{font-weight:700}
-        .status.correct{color:#16a34a}
-        .status.wrong{color:#ef4444}
-        .vertical-add{background:#f7fafc;padding:12px;border-radius:8px;border:1px solid #e5e7eb;display:flex;flex-direction:column;gap:6px;min-width:auto}
-        .grid-row{display:flex;flex-direction:row-reverse;gap:6px;align-items:center}
-        .digit-cell,.carry-cell,.carry-placeholder{
-          width:32px;min-width:32px;height:32px;min-height:32px;
-          box-sizing:border-box;text-align:center;border-radius:6px;
-          font-family:Courier New,ui-monospace,monospace;font-size:18px;
-          display:flex;align-items:center;justify-content:center;
-        }
-        .carry-cell{border:1px dashed #cbd5e1;color:#0ea5e9;background:#f0f9ff}
-        .carry-placeholder{border:1px dashed transparent}
-        .separator{height:2px;background:linear-gradient(90deg,#22d3ee,transparent);border-radius:2px;margin:4px 0}
-        .meta{font-size:12px;color:#64748b}
-        @page{margin:20mm}
-      `;
-      doc.open();
-      doc.write('<!doctype html><html><head><meta charset="utf-8"><title>Solved Subtraction — PDF</title>');
-      doc.write('<style>'+style+'</style></head><body>');
-      doc.write('<h1>Solved subtraction problems</h1>');
-      doc.write('<p>Generated: '+ new Date().toLocaleString() +'</p>');
-
-      state.solved.forEach((it) => {
-        // Borrow HTML — add borrow cells first, placeholder last to align left under row-reverse
-        let carryHTML = '<div class="grid-row">';
-        for(let j=1;j<=it.digits;j++){
-          const val = (it.finalCarryInputs && typeof it.finalCarryInputs[j] !== 'undefined') ? it.finalCarryInputs[j] : '';
-          carryHTML += `<div class="carry-cell">${val}</div>`;
-        }
-        carryHTML += '<div class="carry-placeholder"></div>';
-        carryHTML += '</div>';
-
-        let rowAHTML = '<div class="grid-row">';
-        let rowBHTML = '<div class="grid-row">';
-        for(let i=0;i<it.digits;i++){
-          const da = Math.floor(it.a/Math.pow(10,i))%10;
-          const db = Math.floor(it.b/Math.pow(10,i))%10;
-          rowAHTML += `<div class="digit-cell">${da}</div>`;
-          rowBHTML += `<div class="digit-cell">${db}</div>`;
-        }
-        rowAHTML += '</div>'; rowBHTML += '</div>';
-
-        let sumHTML = '<div class="grid-row">';
-        for(let i=0;i<=it.digits;i++){
-          const val = (it.finalUserDigitsRaw && typeof it.finalUserDigitsRaw[i] !== 'undefined') ? it.finalUserDigitsRaw[i] : '';
-          sumHTML += `<div class="digit-cell">${val}</div>`;
-        }
-        sumHTML += '</div>';
-
-        doc.write(
-          `<div class="solv">
-            <div style="flex:1">
-              <div class="vertical-add">
-                ${carryHTML}
-                ${rowAHTML}
-                ${rowBHTML}
-                <div class="separator"></div>
-                ${sumHTML}
-                <div class="meta">${it.a} - ${it.b}</div>
-                <div class="meta">Attempts: ${it.attempts}</div>
-              </div>
-            </div>
-            <div>
-              <div class="status ${it.correct?'correct':'wrong'}">${it.correct?'Correct':'Wrong'}</div>
-              <div class="meta">${new Date(it.timestamp).toLocaleString()}</div>
-            </div>
-          </div>`
-        );
-      });
-
-      doc.write('</body></html>');
-      doc.close();
-      setTimeout(()=>{ printWindow.focus(); printWindow.print(); }, 350);
+    function updateProgress(){
+      const pct = state.sessionTotal ? Math.min(100, (state.sessionDone/state.sessionTotal)*100) : 0;
+      progBar.style.width = pct + '%';
+      sessionInfo.textContent = `Session: ${state.sessionDone} / ${state.sessionTotal} done.`;
     }
 
-    //
-    //
+    // Simple confetti stub (no external lib)
+    function confetti(){
+      // Lightweight "flash" effect instead of real confetti
+      const body = document.body;
+      body.style.transition = 'background-color 0.2s ease';
+      const old = body.style.backgroundColor;
+      body.style.backgroundColor = '#0b1830';
+      setTimeout(()=>{ body.style.backgroundColor = old; }, 200);
+    }
+
     // Challenge timer helpers
-    //
     function startChallengeTimer(){
       stopChallengeTimer();
       challengeTimeRemaining = CHALLENGE_SECONDS;
       timerWrap.style.display = 'flex';
+      retryBtn.style.display = 'none';
       updateTimerDisplay();
+
       challengeTimer = setInterval(() => {
         challengeTimeRemaining--;
-        updateTimerDisplay();
         if(challengeTimeRemaining <= 0){
+          challengeTimeRemaining = 0;
+          updateTimerDisplay();
           stopChallengeTimer();
           handleChallengeTimeout();
+        } else {
+          updateTimerDisplay();
         }
       }, 1000);
     }
+
     function stopChallengeTimer(){
-      if(challengeTimer) {
+      if(challengeTimer){
         clearInterval(challengeTimer);
         challengeTimer = null;
       }
-      challengeTimeRemaining = 0;
-      timerWrap.style.display = 'none';
-      timerEl.textContent = formatTime(CHALLENGE_SECONDS);
     }
+
     function updateTimerDisplay(){
-      timerEl.textContent = formatTime(challengeTimeRemaining);
-    }
-    function formatTime(sec){
-      const m = Math.floor(sec/60);
-      const s = sec % 60;
-      return `${m}:${s.toString().padStart(2,'0')}`;
+      const seconds = challengeTimeRemaining;
+      const m = Math.floor(seconds/60);
+      const s = seconds%60;
+      timerEl.textContent = `${m}:${s.toString().padStart(2,'0')}`;
     }
 
     function handleChallengeTimeout(){
-      // mark challenge attempt as failed and disable checking until retry
-      explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Challenge</div><div class="step-list"><strong style="color:var(--bad)">Time's up.</strong> You can retry the challenge to try another 5-digit problem.</div>`;
-      explainBox.hidden = false;
-
-      // finalize as failed (record it)
-      if(state.current && !state.current.finalized){
-        state.current.lastAttempt = state.current.lastAttempt || { userDigitsRaw: Array(state.digits+1).fill(''), carryInputs: Array(state.digits+1).fill(''), correct:false, timestamp:new Date().toISOString() };
-        finalizeCurrentProblem(false);
-      }
-
-      // allow retry
-      retryBtn.style.display = 'inline-flex';
-      // disable check until retry
+      flashProblem('Time is up! You can press Retry to try the challenge again.', false);
       checkBtn.disabled = true;
-      // keep inChallenge true until user retries or clicks Next
-      // allow download (proof) for this single attempt
-      downloadBtn.disabled = false;
+      explainBtn.disabled = false;
+      retryBtn.style.display = 'inline-flex';
+      modeLabel.textContent = 'Challenge (time up)';
     }
 
-    // start a challenge: single 5-digit problem, forced regroup, 45s timer
-    function startChallenge(){
-      // set challenge flag
-      state.inChallenge = true;
-      modeLabel.textContent = 'Challenge';
-      // temporarily lock digits select (challenge always uses 5)
-      digitsSelect.disabled = true;
-
-      // prepare one 5-digit forced-regroup problem
-      state.digits = 5;
-      state.current = null;
-      const pair = makeAddends(5);
-      state.a = pair.a;
-      state.b = pair.b;
-      state.asked++;
-      askedEl.textContent = state.asked;
-
-      // session total becomes 1 for UI/behavior during challenge
-      state.sessionTotal = 1;
-
-      renderProblem();
-      saveStateToLocalStorage();
-
-      // start timer
-      startChallengeTimer();
-
-      // ensure retry hidden until needed
-      retryBtn.style.display = 'none';
-      // keep Next disabled while challenge active
-      newBtn.disabled = true;
-      // disable download until finalize
-      downloadBtn.disabled = true;
-    }
-
-    // stop challenge mode and return to practice configuration
-    function stopChallengeMode(){
-      state.inChallenge = false;
-      modeLabel.textContent = 'Practice';
-      digitsSelect.disabled = false;
-      state.sessionTotal = 10;
-      stopChallengeTimer();
-
-      // restore download button state based on solved total
-      downloadBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
-    }
-
-    //
-    // UI wiring and helpers (newProblem, event hookups)
-    //
-    function newProblem(){
-      // If currently in challenge mode, starting a new problem means the user is exiting challenge
-      if(state.inChallenge){
-        stopChallengeMode();
-      }
-
-      // Regular new problem uses digitsSelect (3 or 4)
-      state.digits = Number(digitsSelect.value) || 3;
-      state.current = null;
-
-      const pair = makeAddends(state.digits);
-      state.a = pair.a;
-      state.b = pair.b;
-      state.asked++;
-      askedEl.textContent = state.asked;
-
-      renderProblem();
-      saveStateToLocalStorage();
-      // Next should remain disabled until the new problem is completed
-      newBtn.disabled = true;
-    }
-
-    // Wire controls
-    newBtn.addEventListener('click', newProblem);
-    checkBtn.addEventListener('click', checkAnswer);
-    explainBtn.addEventListener('click', showExplanation);
-    retryBtn.addEventListener('click', () => {
-      // Retry challenge: generate new challenge problem and restart timer
-      startChallenge();
-    });
-    newLessonBtnTop.addEventListener('click', startNewLesson);
-    downloadBtn.addEventListener('click', downloadSolvedPDF);
-    startChallengeBtn.addEventListener('click', () => {
-      // explicit user-initiated challenge start
-      startChallenge();
-    });
-
-    digitsSelect.addEventListener('change', () => {
-      if(!state.inChallenge){
-        state.digits = Number(digitsSelect.value) || 3;
-        renderProblem();
-      }
-    });
-
-    // Tutorial functionality
-    const startTutorialBtn = document.getElementById('startTutorialBtn');
-    startTutorialBtn.addEventListener('click', startTutorial);
-
-    function startTutorial() {
+    // Tutorial overlay
+    function showTutorial(){
       const overlay = document.createElement('div');
       overlay.className = 'tutorial-overlay';
+      overlay.setAttribute('role','dialog');
+      overlay.setAttribute('aria-modal','true');
+
       overlay.innerHTML = `
         <div class="tutorial-content">
-          <h2>📚 Subtraction with Regrouping (Borrowing)</h2>
-          
-          <p>Learn how to subtract when the top number is smaller than the bottom number in a column.</p>
-          
+          <h2>How to Subtract with Borrowing</h2>
+          <p>This quick tutorial walks through an example of borrowing (regrouping) when subtracting.</p>
           <div class="tutorial-step">
-            <strong>Step 1: Start with the Ones Place (Rightmost Column)</strong>
-            Always begin at the rightmost column and work left (ones → tens → hundreds).
+            <strong>1. Start at the ones place</strong>
+            <p>Look at the rightmost digits. If the top digit is smaller than the bottom, you cannot subtract directly.</p>
           </div>
-          
           <div class="tutorial-step">
-            <strong>Step 2: Check If You Need to Borrow</strong>
-            If the top number is smaller than the bottom number, you need to borrow.<br>
-            Example: In 52 - 37, the ones column has 2 - 7. Since 2 < 7, we need to borrow.
+            <strong>2. Borrow from the next place</strong>
+            <p>Borrow <b>1</b> from the next digit to the left. That digit goes down by 1, and you add 10 to the digit you are working with.</p>
           </div>
-          
           <div class="tutorial-step">
-            <strong>Step 3: Borrowing = Regrouping 1 Ten into 10 Ones</strong>
-            When you borrow:<br>
-            • Take 1 from the tens place (5 becomes 4)<br>
-            • Add 10 to the ones place (2 becomes 12)<br>
-            • Now subtract: 12 - 7 = 5
+            <strong>3. Subtract and move left</strong>
+            <p>Now subtract in that column. Then move one column to the left and repeat the process.</p>
           </div>
-          
           <div class="tutorial-step">
-            <strong>Step 4: Move to the Next Column</strong>
-            After subtracting the ones, move left to the tens column.<br>
-            Remember: The tens digit is now reduced by 1 (from borrowing).<br>
-            Example: 4 - 3 = 1
+            <strong>4. Use the interactive borrow boxes</strong>
+            <p>On this page, you can click on the top digits to mark a borrow. A small <b>1</b> shows the 10 you borrowed, and the digit you borrowed from is crossed out and reduced by 1.</p>
           </div>
-          
-          <div class="tutorial-step">
-            <strong>Visual Example: 52 - 37</strong>
-            <pre style="color: var(--accent); font-size: 16px; margin: 8px 0;">
-  ⁴⁵₁₂  ← After borrowing: 5→4, 2→12
-   52
- - 37
- ----
-   15  ← Answer: ones=5, tens=1
-            </pre>
-          </div>
-          
-          <div class="tutorial-step">
-            <strong>💡 Tips for Success</strong>
-            • Click any top number to see if borrowing is needed<br>
-            • Always work right-to-left (column by column)<br>
-            • Enter borrows in the small boxes above to track your work<br>
-            • Use "Explain" button if you get stuck
-          </div>
-          
           <div class="tutorial-controls">
-            <button class="btn" onclick="this.closest('.tutorial-overlay').remove()">Start Practicing!</button>
+            <button id="closeTutorialBtn" class="btn tiny ghost">Close tutorial</button>
           </div>
         </div>
       `;
+
       document.body.appendChild(overlay);
-      
-      // Close on click outside content
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
-          overlay.remove();
-        }
+      document.getElementById('closeTutorialBtn').addEventListener('click', () => {
+        document.body.removeChild(overlay);
       });
     }
 
-    // keyboard: Enter on page triggers check when focused on non-inputs (conservative)
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && document.activeElement && document.activeElement.tagName !== 'INPUT') {
-        checkAnswer();
+    // Download PDF stub
+    function downloadPDF(){
+      if(state.solved.length < DOWNLOAD_THRESHOLD){
+        alert(`Solve at least ${DOWNLOAD_THRESHOLD} problems before downloading your work.`);
+        return;
+      }
+      const lines = [];
+      lines.push('Subtraction with Regrouping - Session Summary');
+      lines.push('');
+      state.solved.forEach((item, index) => {
+        const result = item.a - item.b;
+        lines.push(`${index+1}. ${item.a} - ${item.b} = ${result}  (${item.correct ? 'correct' : 'incorrect'}, attempts: ${item.attempts})`);
+      });
+
+      const blob = new Blob([lines.join('\n')], {type:'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'subtraction-session.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Event wiring
+    digitsSelect.addEventListener('change', () => {
+      if(!state.inChallenge){
+        state.digits = parseInt(digitsSelect.value,10);
+        newProblem();
       }
     });
 
-    // Initialize
-    (function init(){
-      loadStateFromLocalStorage();
-      // Ensure sessionTotal is fixed unless in challenge
-      state.sessionTotal = 10;
-
-      // If no saved problem, generate one
-      if (typeof state.a !== 'number' || typeof state.b !== 'number') {
-        state.digits = Number(digitsSelect.value) || 3;
-        newProblem();
+    newBtn.addEventListener('click', () => {
+      if(state.inChallenge){
+        // in challenge mode, only one problem per challenge
+        startChallenge(); // restart challenge
       } else {
-        // ensure UI reflects state
-        renderProblem();
+        newProblem();
       }
-      updateProgress();
+    });
 
-      // Ensure Next is disabled until the first problem is completed
-      newBtn.disabled = true;
-      timerEl.textContent = formatTime(CHALLENGE_SECONDS);
-    })();
+    checkBtn.addEventListener('click', checkAnswer);
+    explainBtn.addEventListener('click', showExplanation);
+    newLessonBtnTop.addEventListener('click', startNewLesson);
+    downloadBtn.addEventListener('click', downloadPDF);
+    startTutorialBtn.addEventListener('click', showTutorial);
 
+    startChallengeBtn.addEventListener('click', startChallenge);
+    retryBtn.addEventListener('click', startChallenge);
+
+    function startChallenge(){
+      state.inChallenge = true;
+      modeLabel.textContent = 'Challenge (5-digit with regrouping)';
+      digitsSelect.disabled = true;
+      state.digits = 5;
+
+      // Create a fresh problem with guaranteed regrouping
+      const addends = makeAddends(state.digits);
+      state.a = addends.a;
+      state.b = addends.b;
+
+      state.current = null;
+      renderProblem();
+      problemHint.textContent = 'Solve this 5-digit regrouping problem before the timer runs out!';
+      checkBtn.disabled = false;
+      explainBtn.disabled = false;
+      retryBtn.style.display = 'none';
+
+      startChallengeTimer();
+    }
+
+    // Initialize
+    window.addEventListener('load', () => {
+      const restored = loadStateFromLocalStorage();
+      if(!restored){
+        newProblem();
+      }
+    });
   </script>
 </body>
 </html>
