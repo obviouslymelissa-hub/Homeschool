@@ -98,7 +98,7 @@
       align-items:center;
     }
 
-    .digit-cell, .carry-input, .digit-input, .carry-placeholder {
+    .digit-cell, .digit-input {
       width:44px; min-width:44px; box-sizing:border-box; text-align:center;
       border-radius:6px;
       font-family: "Courier New", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
@@ -150,16 +150,6 @@
       50% { box-shadow: 0 0 15px rgba(34, 211, 238, 0.4); }
     }
 
-    .carry-input{
-      padding:6px 6px; font-size:16px; background:rgba(255,255,255,0.02);
-      border:1px dashed rgba(255,255,255,0.04); color:var(--accent); height:36px;
-    }
-
-    .carry-placeholder{
-      height:36px; display:flex; align-items:center; justify-content:center;
-      color:rgba(255,255,255,0.06); border:1px dashed transparent; background:transparent;
-    }
-
     .digit-input{
       padding:6px 6px; font-size:20px; background:transparent;
       border:1px dashed rgba(255,255,255,0.05); color:inherit; height:44px;
@@ -170,14 +160,13 @@
       background:linear-gradient(90deg,var(--accent),transparent);
       margin:6px 0;
       border-radius:2px;
-      position:relative; /* ensure pseudo-element is positioned from here */
+      position:relative;
     }
     .separator::before{
       content:'−'; /* minus sign */
       position:absolute;
-      left:50%;
-      transform:translateX(-50%);
-      top:-0.55em; /* tweak as needed */
+      left:-0.4em;     /* tweak as needed */
+      top:-0.2em;      /* tweak as needed */
       font-size:1.5em;
       color:var(--accent);
       font-weight:700;
@@ -185,12 +174,6 @@
 
     .sum-row{display:flex;gap:6px;align-items:center}
     .hint{font-size:13px;color:var(--muted);margin-top:8px}
-
-    /* suggested carry visual (explain only) - does NOT write a value */
-    .carry-input.suggest {
-      border:1px solid rgba(34,211,238,0.18) !important;
-      box-shadow: 0 4px 10px rgba(34,211,238,0.04);
-    }
 
     /* Stats */
     .stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
@@ -400,9 +383,9 @@
             <ol style="padding-left:20px;margin:8px 0">
               <li style="margin:6px 0">Work from right to left (ones to tens to hundreds)</li>
               <li style="margin:6px 0">If top digit &lt; bottom digit, borrow from the left</li>
-              <li style="margin:6px 0">Enter "1" in the borrow box above the column</li>
-              <li style="margin:6px 0">The borrowed 1 becomes 10 in that place</li>
-              <li style="margin:6px 0">Reduce the digit you borrowed from by 1</li>
+              <li style="margin:6px 0">Click the digit you want to borrow <strong>from</strong></li>
+              <li style="margin:6px 0">That sends a small 1 to the digit on the right, making it 10 more</li>
+              <li style="margin:6px 0">The digit you borrowed from is reduced by 1</li>
             </ol>
             <p style="margin:12px 0 0;padding:8px;background:rgba(34,211,238,0.05);border-radius:6px;border-left:3px solid var(--accent)">
               <strong>Tip:</strong> Click the "Explain" button below for step-by-step guidance!
@@ -414,16 +397,13 @@
       <main class="card stage" aria-live="polite">
         <div class="problem-card" id="problemCard">
           <div class="vertical-add" id="verticalAdd" role="group" aria-label="Subtraction problem">
-            <!-- carries (always visible) - has one extra cell on the left to accept overflow borrow -->
-            <div id="carryRow" class="grid-row" aria-hidden="false"></div>
-
             <!-- numbers -->
             <div id="addendRowA" class="grid-row" aria-hidden="true" title="Minuend"></div>
             <div id="addendRowB" class="grid-row" aria-hidden="true" title="Subtrahend"></div>
 
             <div class="separator" aria-hidden="true"></div>
 
-            <!-- sum row (has one extra leftmost box to accept overflow digit) -->
+            <!-- answer row -->
             <div class="grid-row" id="sumRow" role="group" aria-label="Your answer"></div>
 
             <div class="hint" id="problemHint">Generate a new problem to begin.</div>
@@ -491,7 +471,6 @@
     const timerEl = document.getElementById('timer');
     const newLessonBtnTop = document.getElementById('newLessonBtnTop');
 
-    const carryRow = document.getElementById('carryRow');
     const addendRowA = document.getElementById('addendRowA');
     const addendRowB = document.getElementById('addendRowB');
     const sumRow = document.getElementById('sumRow');
@@ -525,6 +504,10 @@
       current: null,
       inChallenge: false
     };
+
+    // borrowMarks[i] === true means:
+    // column i (place i) has borrowed FROM column i+1 (to its left).
+    let borrowMarks = [];
 
     // Challenge timer state
     let challengeTimer = null;
@@ -575,7 +558,6 @@
           if (state.solved.length > 0) {
             renderSolvedList();
             solvedCard.hidden = false;
-            // allow download if either threshold met
             downloadBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
           }
 
@@ -667,79 +649,26 @@
       return arr;
     }
 
-    // compute borrows array for columns: returns length d array where arr[i] is borrow needed for column i
-    function computeBorrows(a,b,d){
-      const borrows = new Array(d).fill(0);
-      let borrow = 0;
-      for(let i=0;i<d;i++){
-        const pow = Math.pow(10,i);
-        let da = Math.floor(a/pow)%10;
-        const db = Math.floor(b/pow)%10;
-        da -= borrow; // subtract previous borrow
-        if(da < db){
-          borrow = 1;
-        } else {
-          borrow = 0;
-        }
-        borrows[i] = borrow;
-      }
-      return borrows;
-    }
-
     function renderProblem(){
       const d = state.digits, a = state.a, b = state.b;
-      carryRow.innerHTML = '';
+      borrowMarks = new Array(d).fill(false); // reset borrows for this problem
+
       addendRowA.innerHTML = '';
       addendRowB.innerHTML = '';
       sumRow.innerHTML = '';
 
-      // Borrow row: placeholder first, then borrow inputs (works with row-reverse)
-      for(let j=0;j<=d;j++){
-        if(j === 0){
-          const placeholder = document.createElement('div');
-          placeholder.className = 'carry-placeholder';
-          placeholder.textContent = '';
-          placeholder.setAttribute('aria-hidden', 'true');
-          carryRow.appendChild(placeholder);
-        } else {
-          const carryInput = document.createElement('input');
-          carryInput.type = 'text';
-          carryInput.inputMode = 'numeric';
-          carryInput.pattern = '[0-9]*';
-          carryInput.className = 'carry-input';
-          carryInput.maxLength = 1; // limit to one digit
-          carryInput.dataset.idx = j - 1; // match column index
-          carryInput.setAttribute('aria-label','borrow for column '+(j));
-          carryInput.addEventListener('input', e => {
-            e.target.value = e.target.value.replace(/\D/g, '').slice(0,1);
-            updateBorrowVisualization();
-          });
-          carryInput.addEventListener('paste', e => {
-            e.preventDefault();
-            const text = (e.clipboardData || window.clipboardData).getData('text');
-            carryInput.value = (text.match(/\d/) || [''])[0];
-            updateBorrowVisualization();
-          });
-          carryRow.appendChild(carryInput);
-        }
-      }
-      // carries are always visible
-      carryRow.style.display = 'flex';
-
-      // Addends
+      // Minuend & subtrahend rows
       for(let i=0;i<d;i++){
         const pow = Math.pow(10,i);
         const da = Math.floor(a/pow)%10;
         const db = Math.floor(b/pow)%10;
         
-        // Minuend cell with borrowing visualization support
         const cellA = document.createElement('div'); 
         cellA.className='digit-cell clickable-minuend';
         cellA.dataset.originalDigit = da;
         cellA.dataset.columnIndex = i;
-        cellA.style.cursor = 'pointer';
         cellA.innerHTML = `<span class="digit-display">${da}</span>`;
-        cellA.addEventListener('click', () => handleBorrowClick(i, da, db));
+        cellA.addEventListener('click', () => handleBorrowClickFromColumn(i));
         cellA.setAttribute('title', 'Click to borrow from this digit');
         
         const cellB = document.createElement('div'); 
@@ -750,13 +679,13 @@
         addendRowB.appendChild(cellB);
       }
 
-      // Sum row inputs (d+1 to allow overflow) — limit to a single digit
+      // Answer inputs (d+1 to allow overflow)
       for(let i=0;i<=d;i++){
         const input = document.createElement('input');
         input.type='text';
         input.inputMode='numeric';
         input.pattern='[0-9]*';
-        input.maxLength=1; // limit to one digit
+        input.maxLength=1;
         input.className='digit-input';
         input.dataset.idx = i;
         input.setAttribute('aria-label','digit '+(i+1));
@@ -775,10 +704,7 @@
       problemHint.textContent = `Subtract ${state.b} from ${state.a}. Rightmost box is ones.`;
       explainBox.hidden = true;
 
-      // Disable Next while this problem is active (will enable after finalize)
       newBtn.disabled = true;
-
-      // Ensure check/Explain enabled (unless challenge times out)
       checkBtn.disabled = false;
       explainBtn.disabled = false;
       retryBtn.style.display = 'none';
@@ -787,83 +713,74 @@
         const inputs = sumRow.querySelectorAll('input');
         if(inputs.length) inputs[0].focus();
       }, 50);
+
+      updateBorrowVisualization();
     }
 
-    // Update the visual display of minuend digits when borrows are entered
-    function updateBorrowVisualization() {
-      const borrowInputs = Array.from(carryRow.querySelectorAll('input'));
+    // Clicking the digit we are BORROWING FROM (column k)
+    // sends a "1" to column k-1 (to the right) and decrements k.
+    function handleBorrowClickFromColumn(colIndex) {
+      const d = state.digits;
       const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
-      
-      // borrowInputs[0] corresponds to column 0 (ones place)
-      // borrowInputs[1] corresponds to column 1 (tens place), etc.
-      
-      // Update each minuend cell based on borrowing
-      minuendCells.forEach((cell) => {
+
+      // Can't borrow from the rightmost (ones) column, it has no right neighbor to send 10 to
+      if (colIndex === 0) return;
+      if (colIndex < 0 || colIndex >= d) return;
+
+      // We store the borrow on the column to the RIGHT (receiver), which is colIndex-1
+      const receiver = colIndex - 1;
+      borrowMarks[receiver] = !borrowMarks[receiver]; // toggle
+
+      // Brief highlight of the clicked (lender) cell
+      const lenderCell = minuendCells.find(c => parseInt(c.dataset.columnIndex,10) === colIndex);
+      if (lenderCell) {
+        lenderCell.classList.add('borrowed-indicator');
+        setTimeout(() => lenderCell.classList.remove('borrowed-indicator'), 600);
+      }
+
+      updateBorrowVisualization();
+    }
+
+    // Based on borrowMarks, update both lender and receiver visuals
+    function updateBorrowVisualization() {
+      const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
+      const maxIndex = minuendCells.length - 1;
+
+      // First pass: reset everything to original
+      minuendCells.forEach(cell => {
         const originalDigit = cell.dataset.originalDigit;
-        const columnIndex = parseInt(cell.dataset.columnIndex, 10); // actual place value index
-        
-        // Check if this column has a borrow entered (borrow *from* this column to its right)
-        const hasBorrowFromThis = columnIndex < borrowInputs.length && 
-                                  borrowInputs[columnIndex].value === '1';
-        
-        // Check if previous column borrowed to this one
-        const prevColumnIdx = columnIndex - 1;
-        const hasBorrowToThis = prevColumnIdx >= 0 && prevColumnIdx < borrowInputs.length && 
-                                borrowInputs[prevColumnIdx].value === '1';
-        
-        if (hasBorrowFromThis && hasBorrowToThis) {
-          // Both borrowed from AND borrowed to: show crossed out original, and regrouped value
-          const reducedDigit = parseInt(originalDigit,10) - 1;
-          cell.innerHTML = `
-            <span class="crossed-out">${originalDigit}</span>
-            <div class="regrouped-value">
-              <span class="borrowed-prefix">1</span>${reducedDigit}
-            </div>
-          `;
-        } else if (hasBorrowFromThis) {
-          // Only borrowed from: show crossed out original and reduced digit
-          const reducedDigit = parseInt(originalDigit,10) - 1;
-          cell.innerHTML = `
-            <span class="crossed-out">${originalDigit}</span>
-            <span class="digit-display">${reducedDigit}</span>
-          `;
-        } else if (hasBorrowToThis) {
-          // Only borrowed to: show small "1" prefix with original digit
-          cell.innerHTML = `
+        cell.innerHTML = `<span class="digit-display">${originalDigit}</span>`;
+      });
+
+      // Second pass: apply borrows
+      for (let receiver = 0; receiver < borrowMarks.length; receiver++) {
+        if (!borrowMarks[receiver]) continue;
+
+        const lender = receiver + 1; // we borrowed FROM the column to the left
+
+        if (receiver >= 0 && receiver <= maxIndex) {
+          const receiverCell = minuendCells[receiver];
+          const originalDigit = parseInt(receiverCell.dataset.originalDigit, 10);
+          receiverCell.innerHTML = `
             <div class="regrouped-value">
               <span class="borrowed-prefix">1</span>${originalDigit}
             </div>
           `;
-        } else {
-          // No borrowing: show original digit
-          cell.innerHTML = `<span class="digit-display">${originalDigit}</span>`;
         }
-      });
-    }
 
-    // Handle clicking on a top digit to toggle borrow for that column
-    function handleBorrowClick(columnIndex, digitValue, subtrahendDigit) {
-      const borrowInputs = Array.from(carryRow.querySelectorAll('input'));
-      if (columnIndex < 0 || columnIndex >= borrowInputs.length) return;
-
-      const targetBorrowInput = borrowInputs[columnIndex];
-
-      // Toggle between "1" (borrow) and "" (no borrow)
-      targetBorrowInput.value = targetBorrowInput.value === '1' ? '' : '1';
-
-      // Update the visual borrowing display on the digits
-      updateBorrowVisualization();
-
-      // Brief highlight for feedback
-      const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
-      const targetCell = minuendCells.find(cell => parseInt(cell.dataset.columnIndex, 10) === columnIndex);
-      if (targetCell) {
-        targetCell.classList.add('borrowed-indicator');
-        setTimeout(() => targetCell.classList.remove('borrowed-indicator'), 600);
+        if (lender >= 0 && lender <= maxIndex) {
+          const lenderCell = minuendCells[lender];
+          const originalDigit = parseInt(lenderCell.dataset.originalDigit, 10);
+          const reducedDigit = originalDigit - 1;
+          lenderCell.innerHTML = `
+            <span class="crossed-out">${originalDigit}</span>
+            <span class="digit-display">${reducedDigit}</span>
+          `;
+        }
       }
     }
 
-    // Analyze subtraction errors to provide specific feedback
+    // Error analysis (unchanged, still useful)
     function analyzeSubtractionErrors(userDigits, expectedDigits, minuend, subtrahend, digits) {
       const errors = [];
       let borrow = 0;
@@ -876,12 +793,10 @@
         da -= borrow;
         const needsBorrow = da < db;
         
-        // Check if user's digit is wrong
         if(userDigits[i] !== expectedDigits[i]) {
           const placeName = placeNames[i] || `${i+1}-place`;
           
           if(needsBorrow && userDigits[i] === (da - db)) {
-            // User subtracted without borrowing
             errors.push(`${placeName}: You forgot to borrow! ${da} < ${db}, so you need to borrow from the ${placeNames[i + 1] || 'next'} place.`);
           } else if(needsBorrow) {
             const correctValue = (da + 10) - db;
@@ -915,30 +830,19 @@
       }
     }
 
-    function getUserDigits(){ // numeric for checking
+    function getUserDigits(){
       const inputs = Array.from(sumRow.querySelectorAll('input'));
       return inputs.map(i => {
         const v = i.value.trim();
         return v === '' ? 0 : parseInt(v,10);
       });
     }
-    function getUserDigitsRaw(){ // strings exactly as typed
+    function getUserDigitsRaw(){
       const inputs = Array.from(sumRow.querySelectorAll('input'));
       return inputs.map(i => i.value);
     }
-    function getCarryInputsSnapshot(){
-      const cells = Array.from(carryRow.children);
-      // snapshot returns whatever user typed
-      return cells.map(cell => {
-        if(cell.tagName === 'INPUT'){
-          return cell.value || '';
-        }
-        return '';
-      });
-    }
 
     function checkAnswer(){
-      // If challenge timer ran out, ignore checks
       if (state.inChallenge && challengeTimeRemaining <= 0) return;
 
       const user = getUserDigits();
@@ -971,7 +875,6 @@
         streakEl.textContent = state.streak;
         confetti();
 
-        // If in challenge, stop timer and mark success
         if(state.inChallenge){
           stopChallengeTimer();
           explainText.innerHTML = `<div style="font-weight:700;color:#e6eef6;margin-bottom:6px">Challenge</div>
@@ -981,14 +884,12 @@
           explainBox.hidden = false;
         }
       } else {
-        // Use detailed error analysis for specific feedback
         const errorDetails = analyzeSubtractionErrors(user, expected, state.a, state.b, state.digits);
         flashProblem(errorDetails.message, false);
         state.streak = 0;
         streakEl.textContent = state.streak;
       }
 
-      // Attempt tracking
       if(!state.current){
         state.current = {
           a: state.a, b: state.b, digits: state.digits,
@@ -1001,7 +902,7 @@
       state.current.attempts++;
       state.current.lastAttempt = {
         userDigitsRaw: userRaw.slice(),
-        carryInputs: getCarryInputsSnapshot().slice(),
+        borrowMarks: borrowMarks.slice(),
         correct: allGood,
         timestamp: new Date().toISOString()
       };
@@ -1056,7 +957,6 @@
     }
 
     function newProblem(){
-      // If challenge is active, we do not change digitsSelect, we already set challenge digits
       if(!state.inChallenge){
         state.digits = parseInt(digitsSelect.value,10);
       }
@@ -1080,16 +980,13 @@
       state.current.finalized = true;
       state.current.correct = !!correct;
       state.current.endTime = new Date().toISOString();
-      state.solved.unshift(state.current); // newest at top
+      state.solved.unshift(state.current);
       state.sessionDone++;
       updateProgress();
       renderSolvedList();
       solvedCard.hidden = false;
 
-      // Enable Next button
       newBtn.disabled = false;
-
-      // Allow download if threshold met
       downloadBtn.disabled = state.solved.length < DOWNLOAD_THRESHOLD;
 
       saveStateToLocalStorage();
@@ -1124,9 +1021,7 @@
       sessionInfo.textContent = `Session: ${state.sessionDone} / ${state.sessionTotal} done.`;
     }
 
-    // Simple confetti stub (no external lib)
     function confetti(){
-      // Lightweight "flash" effect instead of real confetti
       const body = document.body;
       body.style.transition = 'background-color 0.2s ease';
       const old = body.style.backgroundColor;
@@ -1194,15 +1089,11 @@
           </div>
           <div class="tutorial-step">
             <strong>2. Borrow from the next place</strong>
-            <p>Borrow <b>1</b> from the next digit to the left. That digit goes down by 1, and you add 10 to the digit you are working with.</p>
+            <p>Click the digit to the left to borrow from it. That digit goes down by 1, and you add 10 to the digit you are working with.</p>
           </div>
           <div class="tutorial-step">
             <strong>3. Subtract and move left</strong>
-            <p>Now subtract in that column. Then move one column to the left and repeat the process.</p>
-          </div>
-          <div class="tutorial-step">
-            <strong>4. Use the interactive borrow boxes</strong>
-            <p>On this page, you can click on the top digits to mark a borrow. A small <b>1</b> shows the 10 you borrowed, and the digit you borrowed from is crossed out and reduced by 1.</p>
+            <p>Now subtract in that column, then move left and repeat as needed.</p>
           </div>
           <div class="tutorial-controls">
             <button id="closeTutorialBtn" class="btn tiny ghost">Close tutorial</button>
@@ -1216,7 +1107,7 @@
       });
     }
 
-    // Download PDF stub
+    // Download stub
     function downloadPDF(){
       if(state.solved.length < DOWNLOAD_THRESHOLD){
         alert(`Solve at least ${DOWNLOAD_THRESHOLD} problems before downloading your work.`);
@@ -1249,8 +1140,7 @@
 
     newBtn.addEventListener('click', () => {
       if(state.inChallenge){
-        // in challenge mode, only one problem per challenge
-        startChallenge(); // restart challenge
+        startChallenge();
       } else {
         newProblem();
       }
@@ -1271,7 +1161,6 @@
       digitsSelect.disabled = true;
       state.digits = 5;
 
-      // Create a fresh problem with guaranteed regrouping
       const addends = makeAddends(state.digits);
       state.a = addends.a;
       state.b = addends.b;
