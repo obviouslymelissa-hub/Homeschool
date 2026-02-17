@@ -588,7 +588,8 @@
     };
 
     // borrowMarks[i] === true means:
-    // column i (place i) has borrowed FROM column i+1 (to its left).
+    // column i (place i) has borrowed FROM column i+1 (to its left),
+    // and given 10 to the column i-1 on its right.
     let borrowMarks = [];
 
     // Challenge timer state
@@ -827,40 +828,55 @@
       updateBorrowVisualization();
     }
 
-    // Based on borrowMarks, update both lender and receiver visuals
+    // Option B: compute effective digits from original + incoming/outgoing borrows
     function updateBorrowVisualization() {
       const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
-      const maxIndex = minuendCells.length - 1;
+      const len = minuendCells.length;
 
-      // First pass: reset everything to original
-      minuendCells.forEach(cell => {
-        const originalDigit = cell.dataset.originalDigit;
-        cell.innerHTML = `<span class="digit-display">${originalDigit}</span>`;
-      });
+      for (let i = 0; i < len; i++) {
+        const cell = minuendCells[i];
+        const originalDigit = parseInt(cell.dataset.originalDigit, 10);
 
-      // Second pass: apply borrows
-      for (let receiver = 0; receiver < borrowMarks.length; receiver++) {
-        if (!borrowMarks[receiver]) continue;
+        const incomingBorrow = borrowMarks[i] ? 1 : 0;                 // got 10 from left
+        const givenOutBorrow = (i > 0 && borrowMarks[i - 1]) ? 1 : 0;  // gave 10 to right
 
-        const lender = receiver + 1; // we borrowed FROM the column to the left
+        const effectiveDigit = originalDigit + 10 * incomingBorrow - givenOutBorrow;
 
-        if (receiver >= 0 && receiver <= maxIndex) {
-          const receiverCell = minuendCells[receiver];
-          const originalDigit = parseInt(receiverCell.dataset.originalDigit, 10);
-          receiverCell.innerHTML = `
-            <div class="regrouped-value">
-              <span class="borrowed-prefix">1</span>${originalDigit}
-            </div>
-          `;
+        // No borrowing here: show original digit only
+        if (!incomingBorrow && !givenOutBorrow) {
+          cell.innerHTML = `<span class="digit-display">${originalDigit}</span>`;
+          continue;
         }
 
-        if (lender >= 0 && lender <= maxIndex) {
-          const lenderCell = minuendCells[lender];
-          const originalDigit = parseInt(lenderCell.dataset.originalDigit, 10);
-          const reducedDigit = originalDigit - 1;
-          lenderCell.innerHTML = `
-            <span class="crossed-out">${originalDigit}</span>
-            <span class="digit-display">${reducedDigit}</span>
+        // If we gave out a borrow, we always cross out original
+        if (givenOutBorrow) {
+          const reducedDigit = originalDigit - givenOutBorrow;
+          if (incomingBorrow) {
+            // Both gave and received: show crossed-out original, then 1x (e.g., 15)
+            const onesPart = effectiveDigit % 10;
+            cell.innerHTML = `
+              <span class="crossed-out">${originalDigit}</span>
+              <div class="regrouped-value">
+                <span class="borrowed-prefix">1</span>${onesPart}
+              </div>
+            `;
+          } else {
+            // Only gave: show crossed out and reduced
+            cell.innerHTML = `
+              <span class="crossed-out">${originalDigit}</span>
+              <span class="digit-display">${reducedDigit}</span>
+            `;
+          }
+          continue;
+        }
+
+        // Only received a borrow (did not give one out)
+        if (incomingBorrow) {
+          const onesPart = effectiveDigit % 10;
+          cell.innerHTML = `
+            <div class="regrouped-value">
+              <span class="borrowed-prefix">1</span>${onesPart}
+            </div>
           `;
         }
       }
