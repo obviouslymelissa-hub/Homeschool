@@ -56,6 +56,15 @@
       border:1px solid rgba(255,255,255,0.03);
     }
 
+    /* Controls */
+    .controls label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    .controls .row{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    select,input[type="number"],input[type="checkbox"]{
+      background:var(--glass);border:1px solid rgba(255,255,255,0.04);
+      color:inherit;padding:8px;border-radius:8px;font-size:14px;width:100%;
+      box-sizing:border-box;
+    }
+    .switch{display:flex;gap:8px;align-items:center;}
     .btn{
       display:inline-flex;align-items:center;gap:8px;
       background:linear-gradient(90deg,var(--accent),var(--accent-2));
@@ -156,13 +165,14 @@
     .separator::before{
       content:'−'; /* minus sign */
       position:absolute;
-      left:-0.4em;
-      top:-0.2em;
+      left:-0.4em;     /* tweak as needed */
+      top:-0.2em;      /* tweak as needed */
       font-size:1.5em;
       color:var(--accent);
       font-weight:700;
     }
 
+    .sum-row{display:flex;gap:6px;align-items:center}
     .hint{font-size:13px;color:var(--muted);margin-top:8px}
 
     /* Stats */
@@ -171,78 +181,179 @@
     .progress{height:10px;background:rgba(255,255,255,0.03);border-radius:6px;overflow:hidden}
     .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));width:0%}
 
-    /* Explanation */
+    /* Explanation / base-ten */
     .explain{
       margin-top:8px;background:rgba(255,255,255,0.01);padding:12px;border-radius:8px;font-size:14px;color:var(--muted)
     }
+    #explainText{ white-space: pre-line }
+    .step-list{ margin:8px 0 0; padding-left:18px }
+    .step-list li{ margin:4px 0 }
 
-    /* solved list etc. (unchanged styles omitted for brevity in this explanation) */
+    /* feedback */
+    .correct{border:1px solid rgba(22,163,74,0.18);box-shadow:0 6px 22px rgba(22,163,74,0.06)}
+    .wrong{border:1px solid rgba(239,68,68,0.14);box-shadow:0 6px 22px rgba(239,68,68,0.04)}
 
-    /* Timer */
+    /* solved list */
+    .solved-card{margin-top:8px}
+    .solved-list{
+      margin-top:8px;display:flex;flex-direction:column;gap:8px;max-height:220px;overflow:auto;
+      padding:8px;background:rgba(255,255,255,0.01);border-radius:8px;border:1px solid rgba(255,255,255,0.02);
+    }
+    .solved-item{display:flex;justify-content:space-between;gap:12px;padding:8px;border-radius:8px;background:rgba(255,255,255,0.01);align-items:center}
+    .solved-item .right{display:flex;gap:8px;align-items:center}
+    .solved-correct{color:var(--good);font-weight:700}
+    .solved-wrong{color:var(--bad);font-weight:700}
+    .solved-controls{display:flex;gap:8px;margin-top:8px;align-items:center}
+
+    /* MINI vertical layout for solved items */
+    .carry-cell{
+      padding:6px 6px; font-size:16px; background:rgba(255,255,255,0.02);
+      border:1px dashed rgba(255,255,255,0.04); color:var(--accent);
+      height:36px; display:flex; align-items:center; justify-content:center;
+      border-radius:6px; width:44px; min-width:44px; box-sizing:border-box;
+      font-family: "Courier New", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; text-align:center;
+    }
+    .vertical-add.mini{ padding:12px; gap:6px; min-width:auto; }
+    .vertical-add.mini .digit-cell,
+    .vertical-add.mini .carry-cell,
+    .vertical-add.mini .carry-placeholder,
+    .vertical-add.mini .digit-input{
+      width:32px;min-width:32px;min-height:32px;height:32px;font-size:18px;
+    }
+    .vertical-add.mini .carry-cell{font-size:14px;height:28px}
+    .vertical-add.mini .separator{margin:4px 0}
+
+    /* footer help */
+    footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+    
+    /* Tutorial overlay */
+    .tutorial-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(11, 16, 32, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 300ms ease-in;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    .tutorial-content {
+      background: linear-gradient(180deg,var(--panel),#07142a);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 700px;
+      max-height: 80vh;
+      overflow-y: auto;
+      border: 1px solid rgba(255,255,255,0.05);
+      box-shadow: 0 12px 40px rgba(2,6,23,0.8);
+    }
+    
+    .tutorial-content h2 {
+      margin: 0 0 16px 0;
+      color: var(--accent);
+      font-size: 24px;
+    }
+    
+    .tutorial-content p {
+      margin: 12px 0;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+    
+    .tutorial-step {
+      background: rgba(255,255,255,0.02);
+      border-left: 3px solid var(--accent);
+      padding: 12px;
+      margin: 12px 0;
+      border-radius: 6px;
+    }
+    
+    .tutorial-step strong {
+      color: var(--accent);
+      display: block;
+      margin-bottom: 6px;
+    }
+    
+    .tutorial-controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+
+    /* timer */
     .timer-badge{
       background:rgba(255,255,255,0.03);
       padding:6px 10px;border-radius:8px;font-weight:700;color:var(--accent);
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
     }
 
-    /* NEW: place helper tiles (like tens-frames, but per place) */
-    .place-helper-row {
-      margin-top:6px;
-      padding:6px;
-      border-radius:8px;
-      background:rgba(15,23,42,0.7);
-      border:1px solid rgba(148,163,184,0.25);
-    }
-    .place-helper-label {
-      font-size:11px;
-      color:var(--muted);
-      margin-bottom:4px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:6px;
-    }
-    .place-helper-grid {
-      display:flex;
-      flex-wrap:wrap;
-      gap:4px;
-    }
-    .place-tile {
-      width:18px;
-      height:18px;
-      border-radius:4px;
-      border:1px solid rgba(148,163,184,0.4);
-      background:rgba(15,23,42,0.6);
-      box-sizing:border-box;
-      transition:background 150ms ease,border-color 150ms ease,opacity 150ms ease,transform 80ms ease;
-    }
-    .place-tile.filled {
-      background:linear-gradient(135deg,var(--accent),var(--accent-2));
-      border-color:rgba(34,211,238,0.9);
-      box-shadow:0 0 4px rgba(34,211,238,0.4);
-    }
-    .place-tile.dimmed {
-      background:rgba(15,23,42,0.85);
-      border-color:rgba(148,163,184,0.25);
-      opacity:0.45;
-      box-shadow:none;
-    }
-
-    .place-helper-summary {
-      margin-top:4px;
-      font-size:11px;
-      color:var(--muted);
-    }
-
-    /* Responsive */
+    /* top settings area */
     .controls-top { margin-top:12px; display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
     .controls-top .card{ padding:12px; display:flex; flex-direction:column; gap:8px; width:100%; }
     .controls-top .row{ margin:0; display:flex; gap:8px; align-items:center; width:100%; }
     .controls-top .stats{ margin-top:4px; }
 
+    /* Ten-frame style helper for subtraction */
+    .tenframe-section {
+      margin-top:12px;
+    }
+    .tenframe-title {
+      margin:0 0 6px;
+      font-size:14px;
+      font-weight:600;
+    }
+    .tenframe-row-label {
+      font-size:13px;
+      color:var(--muted);
+      margin:10px 0 4px;
+    }
+    .tenframe-grid {
+      display:grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap:4px;
+      max-width:220px;
+    }
+    .tenframe-cell {
+      width:18px;
+      height:18px;
+      border-radius:4px;
+      border:1px solid rgba(148,163,184,0.5);
+      background:transparent;
+      box-sizing:border-box;
+      transition:background 150ms ease, border-color 150ms ease, opacity 150ms ease;
+    }
+    .tenframe-cell.bright {
+      background:linear-gradient(135deg,var(--accent),var(--accent-2));
+      border-color:rgba(34,211,238,0.9);
+      box-shadow:0 0 4px rgba(34,211,238,0.4);
+    }
+    .tenframe-cell.dim {
+      background:rgba(148,163,184,0.7); /* gray fill so “taken away” is clearly visible */
+      border-color:rgba(148,163,184,0.9);
+      box-shadow:none;
+      opacity:0.9;
+    }
+    .tenframe-summary {
+      margin-top:6px;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    /* responsive */
     @media (max-width:860px){
       .layout{grid-template-columns:1fr; }
       .vertical-add{min-width:100%}
+      .tenframe-label { width:56px; flex: 0 0 56px; font-size:12px; }
       .controls-top{ flex-direction:column; }
     }
   </style>
@@ -257,7 +368,7 @@
       </div>
     </header>
 
-    <!-- TOP SETTINGS -->
+    <!-- TOP: single settings card that spans the width -->
     <div class="controls-top">
       <div class="card" aria-labelledby="lesson-settings-heading">
         <h3 id="lesson-settings-heading" style="margin:0 0 6px">Lesson settings</h3>
@@ -265,6 +376,7 @@
         <div class="row" style="width:100%">
           <label for="digits" style="flex:0 0 160px">Digits per number</label>
           <select id="digits" title="Select number of digits" style="flex:1">
+            <!-- only 3 and 4 allowed for normal practice -->
             <option value="3" selected>3 digits</option>
             <option value="4">4 digits</option>
           </select>
@@ -272,7 +384,7 @@
 
         <div class="row" style="width:100%">
           <label style="flex:0 0 160px">Learn how</label>
-          <button id="startTutorialBtn" class="btn tiny ghost" style="flex:1">
+          <button id="startTutorialBtn" class="btn tiny ghost" title="Watch a guided tutorial on borrowing" style="flex:1">
             Start Tutorial
           </button>
         </div>
@@ -282,7 +394,7 @@
           <div style="flex:1;color:var(--muted);font-size:13px;padding:8px;border-radius:6px;background:var(--glass)">
             Press "Start Challenge" to try one 5‑digit regroup problem with a 45 second timer. Pass to show mastery and be done with subtraction lessons.
           </div>
-          <button id="startChallengeBtn" class="btn tiny" style="margin-left:8px">Start Challenge</button>
+          <button id="startChallengeBtn" class="btn tiny" title="Start the 45s mastery challenge" style="margin-left:8px">Start Challenge</button>
         </div>
 
         <div class="stats" style="margin-top:6px">
@@ -297,19 +409,19 @@
         </div>
 
         <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-          <button id="downloadBtn" class="btn tiny" disabled>Download PDF</button>
+          <button id="downloadBtn" class="btn tiny" disabled title="Download problems & answers as PDF">Download PDF</button>
           <div style="flex:1"></div>
-          <button id="newLessonBtnTop" class="btn ghost tiny">Start New Lesson</button>
+          <button id="newLessonBtnTop" class="btn ghost tiny" title="Start a new lesson and clear progress">Start New Lesson</button>
         </div>
       </div>
     </div>
 
     <div class="layout" style="margin-top:18px">
-      <!-- LEFT HELPERS -->
+      <!-- LEFT: helpers -->
       <aside class="card" aria-labelledby="helpers-heading">
         <h4 id="helpers-heading" style="margin-top:0">Helpers</h4>
 
-        <!-- Borrowing helper text -->
+        <!-- Borrowing helper -->
         <div id="subtractionHelper" style="margin-top:6px">
           <h4 style="margin:6px 0 8px;font-size:14px">Borrowing Guide</h4>
           <div style="font-size:13px;color:var(--muted);line-height:1.6">
@@ -317,46 +429,44 @@
             <ol style="padding-left:20px;margin:8px 0">
               <li style="margin:6px 0">Work from right to left (ones to tens to hundreds)</li>
               <li style="margin:6px 0">If top digit &lt; bottom digit, borrow from the left</li>
-              <li style="margin:6px 0">Click the top digit you are borrowing <strong>from</strong></li>
-              <li style="margin:6px 0">That sends a 10 to the digit on the right and reduces the one you clicked by 1</li>
+              <li style="margin:6px 0">Click the digit you want to borrow <strong>from</strong></li>
+              <li style="margin:6px 0">That sends a small 1 to the digit on the right, making it 10 more</li>
+              <li style="margin:6px 0">The digit you borrowed from is reduced by 1</li>
             </ol>
           </div>
         </div>
 
-        <!-- NEW: Place-based subtraction helper (ones / tens) -->
-        <div id="placeHelper" style="margin-top:12px">
-          <h4 style="margin:6px 0 8px;font-size:14px">Place Value Helper</h4>
-          <div style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:4px">
-            For a column like <strong>14 − 6</strong> in the ones place, we can show 14 dots and dim 6 of them to see that 8 are left.
+        <!-- Ten-frame style helper (matches addition page structure) -->
+        <div class="tenframe-section">
+          <h4 class="tenframe-title">Ten-frame helper</h4>
+
+          <!-- Ones -->
+          <div>
+            <div class="tenframe-row-label">Ones</div>
+            <div id="tfOnesTop" class="tenframe-grid" aria-label="Ones top row"></div>
+            <div id="tfOnesBottom" class="tenframe-grid" aria-label="Ones bottom row" style="margin-top:4px"></div>
           </div>
 
-          <!-- Ones helper row -->
-          <div class="place-helper-row">
-            <div class="place-helper-label">
-              <span>Ones column</span>
-              <button id="onesHelperBtn" class="btn tiny ghost" style="font-size:11px;padding-inline:8px;">Use ones</button>
-            </div>
-            <div id="onesHelperGrid" class="place-helper-grid" aria-label="Ones place helper"></div>
-            <div id="onesHelperSummary" class="place-helper-summary">
-              Click "Use ones" to show dots for the ones column.
-            </div>
+          <!-- Tens -->
+          <div style="margin-top:10px">
+            <div class="tenframe-row-label">Tens</div>
+            <div id="tfTensTop" class="tenframe-grid" aria-label="Tens top row"></div>
+            <div id="tfTensBottom" class="tenframe-grid" aria-label="Tens bottom row" style="margin-top:4px"></div>
           </div>
 
-          <!-- Tens helper row -->
-          <div class="place-helper-row">
-            <div class="place-helper-label">
-              <span>Tens column</span>
-              <button id="tensHelperBtn" class="btn tiny ghost" style="font-size:11px;padding-inline:8px;">Use tens</button>
-            </div>
-            <div id="tensHelperGrid" class="place-helper-grid" aria-label="Tens place helper"></div>
-            <div id="tensHelperSummary" class="place-helper-summary">
-              Click "Use tens" to show dots for the tens column.
-            </div>
+          <!-- Hundreds -->
+          <div style="margin-top:10px">
+            <div class="tenframe-row-label">Hundreds</div>
+            <div id="tfHundredsTop" class="tenframe-grid" aria-label="Hundreds top row"></div>
+            <div id="tfHundredsBottom" class="tenframe-grid" aria-label="Hundreds bottom row" style="margin-top:4px"></div>
+          </div>
+
+          <div id="tenframeSummary" class="tenframe-summary">
+            Click any top digit in the problem to see its column here (bright = left over, gray = taken away).
           </div>
         </div>
       </aside>
 
-      <!-- MAIN PROBLEM AREA -->
       <main class="card stage" aria-live="polite">
         <div class="problem-card" id="problemCard">
           <div class="vertical-add" id="verticalAdd" role="group" aria-label="Subtraction problem">
@@ -390,6 +500,7 @@
               <button id="checkBtn" class="btn ghost tiny" title="Check answer">Check</button>
               <button id="explainBtn" class="btn ghost tiny" title="Show step-by-step">Explain</button>
 
+              <!-- timer / retry area -->
               <div style="flex:1"></div>
               <div id="timerWrap" style="display:none;align-items:center;gap:8px">
                 <div class="timer-badge" id="timer">0:45</div>
@@ -400,18 +511,21 @@
           </div>
         </div>
 
-        <!-- Solved problems (unchanged content) -->
+        <!-- Solved problems box -->
         <div id="solvedCard" class="card solved-card" hidden>
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div style="font-weight:700">Solved problems</div>
             <div style="font-size:13px;color:var(--muted)">Solved in this session</div>
           </div>
+
           <div id="solvedList" class="solved-list" aria-live="polite"></div>
+
           <div class="solved-controls">
             <div style="font-size:13px;color:var(--muted)">When 10 problems are solved you can download your work.</div>
             <div style="flex:1"></div>
           </div>
         </div>
+
       </main>
     </div>
   </div>
@@ -422,7 +536,7 @@
     const startChallengeBtn = document.getElementById('startChallengeBtn');
     const modeLabel = document.getElementById('modeLabel');
 
-    const newBtn = document.getElementById('newBtn');
+    const newBtn = document.getElementById('newBtn'); // Next problem
     const checkBtn = document.getElementById('checkBtn');
     const explainBtn = document.getElementById('explainBtn');
     const retryBtn = document.getElementById('retryBtn');
@@ -450,13 +564,14 @@
 
     const startTutorialBtn = document.getElementById('startTutorialBtn');
 
-    // NEW: place helper DOM
-    const onesHelperGrid = document.getElementById('onesHelperGrid');
-    const tensHelperGrid = document.getElementById('tensHelperGrid');
-    const onesHelperSummary = document.getElementById('onesHelperSummary');
-    const tensHelperSummary = document.getElementById('tensHelperSummary');
-    const onesHelperBtn = document.getElementById('onesHelperBtn');
-    const tensHelperBtn = document.getElementById('tensHelperBtn');
+    // Ten-frame helper DOM refs
+    const tfOnesTop = document.getElementById('tfOnesTop');
+    const tfOnesBottom = document.getElementById('tfOnesBottom');
+    const tfTensTop = document.getElementById('tfTensTop');
+    const tfTensBottom = document.getElementById('tfTensBottom');
+    const tfHundredsTop = document.getElementById('tfHundredsTop');
+    const tfHundredsBottom = document.getElementById('tfHundredsBottom');
+    const tenframeSummary = document.getElementById('tenframeSummary');
 
     let state = {
       a: null,
@@ -465,25 +580,27 @@
       asked: 0,
       correct: 0,
       streak: 0,
-      sessionTotal: 10,
+      sessionTotal: 10,  // fixed for practice
       sessionDone: 0,
       solved: [],
       current: null,
       inChallenge: false
     };
 
-    // For visual borrowing
+    // borrowMarks[i] === true means:
+    // column i (place i) has borrowed FROM column i+1 (to its left).
     let borrowMarks = [];
 
-    // Challenge timer
+    // Challenge timer state
     let challengeTimer = null;
-    let challengeTimeRemaining = 0;
+    let challengeTimeRemaining = 0; // seconds
     const CHALLENGE_SECONDS = 45;
 
-    // Storage
+    // LocalStorage key for persistence
     const STORAGE_KEY = 'subtraction_session_state';
-    const DOWNLOAD_THRESHOLD = 10;
+    const DOWNLOAD_THRESHOLD = 10; // Minimum solved problems required for download
 
+    // Save state to localStorage (minimal)
     function saveStateToLocalStorage() {
       const stateToSave = {
         asked: state.asked,
@@ -500,6 +617,7 @@
       }
     }
 
+    // Load state from localStorage
     function loadStateFromLocalStorage() {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
@@ -512,11 +630,13 @@
           state.solved = parsed.solved ?? [];
           state.digits = parsed.digits ?? 3;
 
+          // Update UI elements
           askedEl.textContent = state.asked;
           correctEl.textContent = state.correct;
           streakEl.textContent = state.streak;
           digitsSelect.value = state.digits;
 
+          // Restore solved list if any
           if (state.solved.length > 0) {
             renderSolvedList();
             solvedCard.hidden = false;
@@ -532,6 +652,7 @@
       return false;
     }
 
+    // Clear localStorage and reset session
     function startNewLesson() {
       if (state.asked > 0) {
         const confirmed = confirm('Are you sure you want to start a new lesson? This will clear all saved progress from the current session.');
@@ -544,6 +665,7 @@
         console.error('Failed to clear localStorage:', e);
       }
 
+      // Reset state
       state.asked = 0;
       state.correct = 0;
       state.streak = 0;
@@ -552,6 +674,7 @@
       state.current = null;
       state.inChallenge = false;
 
+      // Update UI
       askedEl.textContent = state.asked;
       correctEl.textContent = state.correct;
       streakEl.textContent = state.streak;
@@ -560,24 +683,29 @@
       downloadBtn.disabled = true;
       updateProgress();
 
+      // Ensure mode returns to practice
       modeLabel.textContent = 'Practice';
       digitsSelect.disabled = false;
 
+      // Stop any challenge timer
       stopChallengeTimer();
       timerWrap.style.display = 'none';
       retryBtn.style.display = 'none';
 
+      // Generate first problem
       newProblem();
     }
 
     function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
 
+    // makeAddends always forces at least one regroup (borrowing)
     function makeAddends(digits){
       while(true){
         const max = Math.pow(10,digits)-1;
         const min = Math.pow(10,digits-1);
         let a = randInt(min, max);
         let b = randInt(min, max);
+        // Ensure a > b for subtraction
         if(a < b){ [a,b] = [b,a]; }
         if(a === b) continue;
         const hasRegroup = (() => {
@@ -585,7 +713,7 @@
             const pow=Math.pow(10,i);
             const da = Math.floor(a/pow)%10;
             const db = Math.floor(b/pow)%10;
-            if(da < db) return true;
+            if(da < db) return true; // Need to borrow
           }
           return false;
         })();
@@ -605,12 +733,13 @@
 
     function renderProblem(){
       const d = state.digits, a = state.a, b = state.b;
-      borrowMarks = new Array(d).fill(false);
+      borrowMarks = new Array(d).fill(false); // reset borrows for this problem
 
       addendRowA.innerHTML = '';
       addendRowB.innerHTML = '';
       sumRow.innerHTML = '';
 
+      // Minuend & subtrahend rows
       for(let i=0;i<d;i++){
         const pow = Math.pow(10,i);
         const da = Math.floor(a/pow)%10;
@@ -621,8 +750,11 @@
         cellA.dataset.originalDigit = da;
         cellA.dataset.columnIndex = i;
         cellA.innerHTML = `<span class="digit-display">${da}</span>`;
-        cellA.addEventListener('click', () => handleBorrowClickFromColumn(i));
-        cellA.setAttribute('title', 'Click to borrow from this digit');
+        cellA.addEventListener('click', () => {
+          handleBorrowClickFromColumn(i);
+          showTenFrameForColumn(i);
+        });
+        cellA.setAttribute('title', 'Click to borrow from this digit and show helper');
         
         const cellB = document.createElement('div'); 
         cellB.className='digit-cell'; 
@@ -632,6 +764,7 @@
         addendRowB.appendChild(cellB);
       }
 
+      // Answer inputs (d+1 to allow overflow)
       for(let i=0;i<=d;i++){
         const input = document.createElement('input');
         input.type='text';
@@ -667,21 +800,24 @@
       }, 50);
 
       updateBorrowVisualization();
-      clearPlaceHelperGrids();
+      clearTenFrames();
     }
 
-    // Borrowing: click the digit we are BORROWING FROM (column k)
-    // sends a "1" to column k-1 (right) and decrements k.
+    // Clicking the digit we are BORROWING FROM (column k)
+    // sends a "1" to column k-1 (to the right) and decrements k.
     function handleBorrowClickFromColumn(colIndex) {
       const d = state.digits;
       const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
 
+      // Can't borrow from the rightmost (ones) column, it has no right neighbor to send 10 to
       if (colIndex === 0) return;
       if (colIndex < 0 || colIndex >= d) return;
 
+      // We store the borrow on the column to the RIGHT (receiver), which is colIndex-1
       const receiver = colIndex - 1;
-      borrowMarks[receiver] = !borrowMarks[receiver];
+      borrowMarks[receiver] = !borrowMarks[receiver]; // toggle
 
+      // Brief highlight of the clicked (lender) cell
       const lenderCell = minuendCells.find(c => parseInt(c.dataset.columnIndex,10) === colIndex);
       if (lenderCell) {
         lenderCell.classList.add('borrowed-indicator');
@@ -691,18 +827,22 @@
       updateBorrowVisualization();
     }
 
+    // Based on borrowMarks, update both lender and receiver visuals
     function updateBorrowVisualization() {
       const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
       const maxIndex = minuendCells.length - 1;
 
+      // First pass: reset everything to original
       minuendCells.forEach(cell => {
         const originalDigit = cell.dataset.originalDigit;
         cell.innerHTML = `<span class="digit-display">${originalDigit}</span>`;
       });
 
+      // Second pass: apply borrows
       for (let receiver = 0; receiver < borrowMarks.length; receiver++) {
         if (!borrowMarks[receiver]) continue;
-        const lender = receiver + 1;
+
+        const lender = receiver + 1; // we borrowed FROM the column to the left
 
         if (receiver >= 0 && receiver <= maxIndex) {
           const receiverCell = minuendCells[receiver];
@@ -726,6 +866,7 @@
       }
     }
 
+    // Error analysis (unchanged, still useful)
     function analyzeSubtractionErrors(userDigits, expectedDigits, minuend, subtrahend, digits) {
       const errors = [];
       let borrow = 0;
@@ -974,7 +1115,7 @@
       setTimeout(()=>{ body.style.backgroundColor = old; }, 200);
     }
 
-    // Timer helpers
+    // Challenge timer helpers
     function startChallengeTimer(){
       stopChallengeTimer();
       challengeTimeRemaining = CHALLENGE_SECONDS;
@@ -1017,7 +1158,7 @@
       modeLabel.textContent = 'Challenge (time up)';
     }
 
-    // Tutorial overlay (unchanged)
+    // Tutorial overlay
     function showTutorial(){
       const overlay = document.createElement('div');
       overlay.className = 'tutorial-overlay';
@@ -1075,72 +1216,88 @@
       URL.revokeObjectURL(url);
     }
 
-    // NEW: Place helper logic
-    function buildPlaceHelperGrid(container){
-      container.innerHTML = '';
-      // 20 tiles (two rows of 10) gives enough room for 14, 18, etc.
-      for (let i = 0; i < 20; i++) {
-        const tile = document.createElement('div');
-        tile.className = 'place-tile';
-        container.appendChild(tile);
+    // Ten-frame builder & helper
+    function buildTenFrame(gridEl){
+      gridEl.innerHTML = '';
+      for(let i=0;i<10;i++){
+        const cell = document.createElement('div');
+        cell.className = 'tenframe-cell';
+        gridEl.appendChild(cell);
       }
     }
 
-    function clearPlaceHelperGrids(){
-      [onesHelperGrid, tensHelperGrid].forEach(grid => {
-        Array.from(grid.children).forEach(tile => {
-          tile.classList.remove('filled','dimmed');
+    function buildAllTenFrames(){
+      [tfOnesTop, tfOnesBottom, tfTensTop, tfTensBottom, tfHundredsTop, tfHundredsBottom]
+        .forEach(buildTenFrame);
+    }
+
+    function clearTenFrames(){
+      [tfOnesTop, tfOnesBottom, tfTensTop, tfTensBottom, tfHundredsTop, tfHundredsBottom]
+        .forEach(grid => {
+          Array.from(grid.children).forEach(c => c.className = 'tenframe-cell');
         });
-      });
-      onesHelperSummary.textContent = 'Click "Use ones" to show dots for the ones column.';
-      tensHelperSummary.textContent = 'Click "Use tens" to show dots for the tens column.';
+      tenframeSummary.textContent = 'Click any top digit in the problem to see its column here (bright = left over, gray = taken away).';
     }
 
-    // Show minuend digit as bright dots, subtrahend digit as dimmed dots
-    function showPlaceHelper(grid, summaryEl, placeIndex){
-      if (state.a == null || state.b == null) {
-        summaryEl.textContent = 'Generate a problem first.';
-        return;
-      }
-      const d = state.digits;
-      if (placeIndex >= d) {
-        summaryEl.textContent = 'This column is not used in this problem.';
-        return;
-      }
+    // Show ten-frame for given place index: 0 = ones, 1 = tens, 2 = hundreds
+    function showTenFrameForColumn(placeIndex){
+      if(state.a == null || state.b == null) return;
 
       const pow = Math.pow(10, placeIndex);
       let topDigit = Math.floor(state.a / pow) % 10;
-      let bottomDigit = Math.floor(state.b / pow) % 10;
+      const bottomDigit = Math.floor(state.b / pow) % 10;
 
-      // If we've borrowed into this place, conceptually treat the topDigit as 10+topDigit
-      // for visualization of something like 14 - 6.
+      // If we marked a borrow into this place, visually treat it as 10 + digit
       if (borrowMarks[placeIndex]) {
         topDigit += 10;
       }
 
-      const tiles = Array.from(grid.children);
-      tiles.forEach(tile => tile.classList.remove('filled','dimmed'));
+      // Choose which grids to use
+      let topGrid, bottomGrid, placeName;
+      if(placeIndex === 0){
+        topGrid = tfOnesTop;
+        bottomGrid = tfOnesBottom;
+        placeName = 'ones';
+      } else if(placeIndex === 1){
+        topGrid = tfTensTop;
+        bottomGrid = tfTensBottom;
+        placeName = 'tens';
+      } else {
+        topGrid = tfHundredsTop;
+        bottomGrid = tfHundredsBottom;
+        placeName = 'hundreds';
+      }
 
-      // Clamp to grid size
-      const maxDots = tiles.length;
+      // Reset all frames first
+      clearTenFrames();
+
+      const topCells = Array.from(topGrid.children);
+      const bottomCells = Array.from(bottomGrid.children);
+      const allCells = topCells.concat(bottomCells); // 20 cells total
+
+      allCells.forEach(c => c.className = 'tenframe-cell');
+
+      const maxDots = allCells.length;
       const totalDots = Math.min(topDigit, maxDots);
-      const dimCount = Math.min(bottomDigit, totalDots);
+      const dimCount  = Math.min(bottomDigit, totalDots);
       const brightCount = totalDots - dimCount;
 
-      // Fill: first the bright (kept) ones, then dimmed (taken away) ones,
-      // so visually you see "leftover" clearly.
       let idx = 0;
-      for (let i=0; i<brightCount && idx<maxDots; i++, idx++){
-        tiles[idx].classList.add('filled');
+      // Bright (still there)
+      for(let i=0;i<brightCount && idx<maxDots;i++,idx++){
+        allCells[idx].classList.add('bright');
       }
-      for (let i=0; i<dimCount && idx<maxDots; i++, idx++){
-        tiles[idx].classList.add('dimmed');
+      // Dimmed (taken away)
+      for(let i=0;i<dimCount && idx<maxDots;i++,idx++){
+        allCells[idx].classList.add('dim');
       }
 
-      if (totalDots === 0){
-        summaryEl.textContent = 'There are 0 in this column.';
+      if(totalDots === 0){
+        tenframeSummary.textContent = `There are 0 in the ${placeName} column.`;
       } else {
-        summaryEl.textContent = `Top has ${topDigit}, we take away ${bottomDigit}. ${brightCount} dots stay bright, so the answer digit here is ${brightCount}.`;
+        tenframeSummary.textContent =
+          `In the ${placeName} column, the top has ${topDigit}, we subtract ${bottomDigit}. ` +
+          `${brightCount} bright squares are left, so the answer digit here is ${brightCount}.`;
       }
     }
 
@@ -1169,10 +1326,6 @@
     startChallengeBtn.addEventListener('click', startChallenge);
     retryBtn.addEventListener('click', startChallenge);
 
-    // Place helper buttons: placeIndex 0 = ones, 1 = tens
-    onesHelperBtn.addEventListener('click', () => showPlaceHelper(onesHelperGrid, onesHelperSummary, 0));
-    tensHelperBtn.addEventListener('click', () => showPlaceHelper(tensHelperGrid, tensHelperSummary, 1));
-
     function startChallenge(){
       state.inChallenge = true;
       modeLabel.textContent = 'Challenge (5-digit with regrouping)';
@@ -1193,11 +1346,9 @@
       startChallengeTimer();
     }
 
+    // Initialize
     window.addEventListener('load', () => {
-      // build place helper grids
-      buildPlaceHelperGrid(onesHelperGrid);
-      buildPlaceHelperGrid(tensHelperGrid);
-
+      buildAllTenFrames();
       const restored = loadStateFromLocalStorage();
       if(!restored){
         newProblem();
