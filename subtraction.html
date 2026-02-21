@@ -109,21 +109,21 @@
       min-height:44px; display:flex; align-items:center; justify-content:center;
       position:relative; flex-direction:column;
     }
-    
+
     .digit-cell.clickable-minuend {
       cursor: pointer;
       transition: all 260ms ease;
     }
-    
+
     .digit-cell.clickable-minuend:hover {
       background: rgba(34,211,238,0.08);
       border: 1px solid rgba(34,211,238,0.2);
       transform: scale(1.05);
     }
-    
+
     /* Borrowing visualization */
     .digit-cell .crossed-out{
-      text-decoration:line-through; text-decoration-color:rgba(239,68,68,0.6); 
+      text-decoration:line-through; text-decoration-color:rgba(239,68,68,0.6);
       text-decoration-thickness:2px; font-size:20px; color:rgba(230,238,246,0.4);
     }
     .digit-cell .borrowed-prefix{
@@ -133,18 +133,18 @@
     .digit-cell .regrouped-value{
       display:flex; align-items:center; justify-content:center; font-size:28px;
     }
-    
+
     @keyframes pulse {
       0%, 100% { transform: scale(1); opacity: 1; }
       50% { transform: scale(1.2); opacity: 0.8; }
     }
-    
+
     .digit-cell.borrowed-indicator {
       border: 2px solid rgba(34, 211, 238, 0.4);
       background: rgba(34, 211, 238, 0.04);
       animation: glow 1s ease-in-out;
     }
-    
+
     @keyframes glow {
       0%, 100% { box-shadow: 0 0 5px rgba(34, 211, 238, 0.2); }
       50% { box-shadow: 0 0 15px rgba(34, 211, 238, 0.4); }
@@ -225,7 +225,7 @@
 
     /* footer help */
     footer{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
-    
+
     /* Tutorial overlay */
     .tutorial-overlay {
       position: fixed;
@@ -240,12 +240,12 @@
       z-index: 1000;
       animation: fadeIn 300ms ease-in;
     }
-    
+
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
     }
-    
+
     .tutorial-content {
       background: linear-gradient(180deg,var(--panel),#07142a);
       border-radius: 12px;
@@ -256,19 +256,19 @@
       border: 1px solid rgba(255,255,255,0.05);
       box-shadow: 0 12px 40px rgba(2,6,23,0.8);
     }
-    
+
     .tutorial-content h2 {
       margin: 0 0 16px 0;
       color: var(--accent);
       font-size: 24px;
     }
-    
+
     .tutorial-content p {
       margin: 12px 0;
       line-height: 1.6;
       color: var(--muted);
     }
-    
+
     .tutorial-step {
       background: rgba(255,255,255,0.02);
       border-left: 3px solid var(--accent);
@@ -276,13 +276,13 @@
       margin: 12px 0;
       border-radius: 6px;
     }
-    
+
     .tutorial-step strong {
       color: var(--accent);
       display: block;
       margin-bottom: 6px;
     }
-    
+
     .tutorial-controls {
       display: flex;
       gap: 12px;
@@ -745,8 +745,8 @@
         const pow = Math.pow(10,i);
         const da = Math.floor(a/pow)%10;
         const db = Math.floor(b/pow)%10;
-        
-        const cellA = document.createElement('div'); 
+
+        const cellA = document.createElement('div');
         cellA.className='digit-cell clickable-minuend';
         cellA.dataset.originalDigit = da;
         cellA.dataset.columnIndex = i;
@@ -756,16 +756,16 @@
           showTenFrameForColumn(i);
         });
         cellA.setAttribute('title', 'Click to borrow from this digit and show helper');
-        
-        const cellB = document.createElement('div'); 
-        cellB.className='digit-cell'; 
+
+        const cellB = document.createElement('div');
+        cellB.className='digit-cell';
         cellB.textContent=db;
-        
+
         addendRowA.appendChild(cellA);
         addendRowB.appendChild(cellB);
       }
 
-      // Answer inputs (d+1 to allow overflow)
+      // Answer inputs (d+1 to allow overflow / leading zeros)
       for(let i=0;i<=d;i++){
         const input = document.createElement('input');
         input.type='text';
@@ -810,7 +810,7 @@
       const d = state.digits;
       const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
 
-      // Can't borrow from the rightmost (ones) column, it has no right neighbor to send 10 to
+      // Can't borrow from the rightmost (ones) column
       if (colIndex === 0) return;
       if (colIndex < 0 || colIndex >= d) return;
 
@@ -828,7 +828,7 @@
       updateBorrowVisualization();
     }
 
-    // Option B: compute effective digits from original + incoming/outgoing borrows
+    // compute effective digits from original + incoming/outgoing borrows
     function updateBorrowVisualization() {
       const minuendCells = Array.from(addendRowA.querySelectorAll('.digit-cell'));
       const len = minuendCells.length;
@@ -882,22 +882,22 @@
       }
     }
 
-    // Error analysis (unchanged, still useful)
+    // Error analysis
     function analyzeSubtractionErrors(userDigits, expectedDigits, minuend, subtrahend, digits) {
       const errors = [];
       let borrow = 0;
       const placeNames = ['ones', 'tens', 'hundreds', 'thousands', 'ten-thousands'];
-      
+
       for(let i = 0; i < digits; i++) {
         let da = Math.floor(minuend / Math.pow(10, i)) % 10;
         const db = Math.floor(subtrahend / Math.pow(10, i)) % 10;
-        
+
         da -= borrow;
         const needsBorrow = da < db;
-        
+
         if(userDigits[i] !== expectedDigits[i]) {
           const placeName = placeNames[i] || `${i+1}-place`;
-          
+
           if(needsBorrow && userDigits[i] === (da - db)) {
             errors.push(`${placeName}: You forgot to borrow! ${da} < ${db}, so you need to borrow from the ${placeNames[i + 1] || 'next'} place.`);
           } else if(needsBorrow) {
@@ -907,10 +907,10 @@
             errors.push(`${placeName}: Expected ${expectedDigits[i]}, you wrote ${userDigits[i]}.`);
           }
         }
-        
+
         borrow = needsBorrow ? 1 : 0;
       }
-      
+
       return {
         message: errors.length > 0 ? errors[0] : 'Not quite — try again.',
         allErrors: errors
@@ -1077,13 +1077,24 @@
       saveStateToLocalStorage();
     }
 
-    function finalizeCurrentProblem(correct){
+    // UPDATED: Save final borrow marks + the user's entered digits for solved rendering/printing
+    function finalizeCurrentProblem(wasCorrect){
       if(!state.current) return;
-      state.current.finalized = true;
-      state.current.correct = !!correct;
-      state.current.endTime = new Date().toISOString();
-      state.solved.unshift(state.current);
+
+      const it = state.current;
+      const d = it.digits;
+
+      // Save a snapshot for solved rendering + printing
+      it.finalized = true;
+      it.correct = !!wasCorrect;
+      it.timestamp = new Date().toISOString();
+
+      it.finalUserDigitsRaw = (it.lastAttempt?.userDigitsRaw || []).slice();
+      it.finalBorrowMarks = (it.lastAttempt?.borrowMarks || new Array(d).fill(false)).slice();
+
+      state.solved.unshift(it);
       state.sessionDone++;
+
       updateProgress();
       renderSolvedList();
       solvedCard.hidden = false;
@@ -1094,26 +1105,135 @@
       saveStateToLocalStorage();
     }
 
+    // UPDATED: solved list mirrors addition-style mini vertical layout
     function renderSolvedList(){
       solvedList.innerHTML = '';
-      state.solved.forEach((item, index) => {
-        const container = document.createElement('div');
-        container.className = 'solved-item';
+
+      function buildMinuendMiniCell(originalDigit, incomingBorrow, givenOutBorrow){
+        const effectiveDigit = originalDigit + (incomingBorrow ? 10 : 0) - (givenOutBorrow ? 1 : 0);
+
+        const cell = document.createElement('div');
+        cell.className = 'digit-cell';
+
+        if(!incomingBorrow && !givenOutBorrow){
+          cell.innerHTML = `<span class="digit-display">${originalDigit}</span>`;
+          return cell;
+        }
+
+        if(givenOutBorrow){
+          const reducedDigit = originalDigit - 1;
+          if(incomingBorrow){
+            const onesPart = effectiveDigit % 10;
+            cell.innerHTML = `
+              <span class="crossed-out">${originalDigit}</span>
+              <div class="regrouped-value">
+                <span class="borrowed-prefix">1</span>${onesPart}
+              </div>
+            `;
+          } else {
+            cell.innerHTML = `
+              <span class="crossed-out">${originalDigit}</span>
+              <span class="digit-display">${reducedDigit}</span>
+            `;
+          }
+          return cell;
+        }
+
+        const onesPart = effectiveDigit % 10;
+        cell.innerHTML = `
+          <div class="regrouped-value">
+            <span class="borrowed-prefix">1</span>${onesPart}
+          </div>
+        `;
+        return cell;
+      }
+
+      state.solved.forEach((it) => {
+        const div = document.createElement('div');
+        div.className = 'solved-item';
 
         const left = document.createElement('div');
-        left.innerHTML = `<div style="font-weight:600">${item.a} − ${item.b}</div>
-<div style="font-size:12px;color:var(--muted)">Attempts: ${item.attempts}</div>`;
+
+        const mini = document.createElement('div');
+        mini.className = 'vertical-add mini';
+
+        const d = it.digits;
+        const borrowSaved = Array.isArray(it.finalBorrowMarks) ? it.finalBorrowMarks : (it.lastAttempt?.borrowMarks || new Array(d).fill(false));
+        const userRaw = Array.isArray(it.finalUserDigitsRaw) ? it.finalUserDigitsRaw : (it.lastAttempt?.userDigitsRaw || Array(d).fill(''));
+
+        // Minuend row with borrowing visualization
+        const rowA = document.createElement('div');
+        rowA.className = 'grid-row';
+        for(let i=0;i<d;i++){
+          const da = Math.floor(it.a/Math.pow(10,i))%10;
+          const incomingBorrow = !!borrowSaved[i];
+          const givenOutBorrow = (i > 0 && !!borrowSaved[i - 1]);
+          rowA.appendChild(buildMinuendMiniCell(da, incomingBorrow, givenOutBorrow));
+        }
+
+        // Subtrahend row
+        const rowB = document.createElement('div');
+        rowB.className = 'grid-row';
+        for(let i=0;i<d;i++){
+          const db = Math.floor(it.b/Math.pow(10,i))%10;
+          const cellB = document.createElement('div');
+          cellB.className = 'digit-cell';
+          cellB.textContent = db;
+          rowB.appendChild(cellB);
+        }
+
+        const sep = document.createElement('div');
+        sep.className = 'separator';
+
+        // Answer row (student's entered answer ONLY, no extra overflow box)
+        const sumMini = document.createElement('div');
+        sumMini.className = 'grid-row';
+        for(let i=0;i<d;i++){
+          const cell = document.createElement('div');
+          cell.className = 'digit-cell';
+          cell.textContent = (typeof userRaw[i] !== 'undefined') ? userRaw[i] : '';
+          sumMini.appendChild(cell);
+        }
+
+        // Meta
+        const meta1 = document.createElement('div');
+        meta1.style.fontSize = '12px';
+        meta1.style.color = 'var(--muted)';
+        meta1.textContent = `${it.a} − ${it.b}`;
+
+        const meta2 = document.createElement('div');
+        meta2.style.fontSize = '12px';
+        meta2.style.color = 'var(--muted)';
+        meta2.textContent = `Attempts: ${it.attempts ?? 0}`;
+
+        mini.appendChild(rowA);
+        mini.appendChild(rowB);
+        mini.appendChild(sep);
+        mini.appendChild(sumMini);
+        mini.appendChild(meta1);
+        mini.appendChild(meta2);
+
+        left.appendChild(mini);
 
         const right = document.createElement('div');
         right.className = 'right';
-        const status = document.createElement('span');
-        status.textContent = item.correct ? 'Correct' : 'Incorrect';
-        status.className = item.correct ? 'solved-correct' : 'solved-wrong';
-        right.appendChild(status);
 
-        container.appendChild(left);
-        container.appendChild(right);
-        solvedList.appendChild(container);
+        const status = document.createElement('div');
+        status.textContent = it.correct ? 'Correct' : 'Wrong';
+        status.className = it.correct ? 'solved-correct' : 'solved-wrong';
+
+        const time = document.createElement('div');
+        time.style.fontSize = '12px';
+        time.style.color = 'var(--muted)';
+        time.textContent = it.timestamp ? new Date(it.timestamp).toLocaleTimeString() : '';
+
+        right.appendChild(status);
+        right.appendChild(time);
+
+        div.appendChild(left);
+        div.appendChild(right);
+
+        solvedList.appendChild(div);
       });
     }
 
@@ -1209,27 +1329,160 @@
       });
     }
 
-    // Download stub
-    function downloadPDF(){
+    // UPDATED: printable "PDF" via print window (mirrors addition.html behavior)
+    function downloadSolvedPDF(){
       if(state.solved.length < DOWNLOAD_THRESHOLD){
         alert(`Solve at least ${DOWNLOAD_THRESHOLD} problems before downloading your work.`);
         return;
       }
-      const lines = [];
-      lines.push('Subtraction with Regrouping - Session Summary');
-      lines.push('');
-      state.solved.forEach((item, index) => {
-        const result = item.a - item.b;
-        lines.push(`${index+1}. ${item.a} - ${item.b} = ${result}  (${item.correct ? 'correct' : 'incorrect'}, attempts: ${item.attempts})`);
+
+      const printWindow = window.open('', '_blank', 'width=800,height=1000,scrollbars=yes');
+      if(!printWindow) {
+        alert('Unable to open print window (popup blocked).');
+        return;
+      }
+
+      const doc = printWindow.document;
+
+      const style = `
+        body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:20px}
+        h1{font-size:20px;margin-bottom:8px}
+        p{margin:0 0 12px}
+        .solv{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:10px}
+        .status{font-weight:700}
+        .status.correct{color:#16a34a}
+        .status.wrong{color:#ef4444}
+
+        .vertical-sub{background:#f7fafc;padding:12px;border-radius:8px;border:1px solid #e5e7eb;display:flex;flex-direction:column;gap:6px;min-width:auto}
+        .grid-row{display:flex;flex-direction:row-reverse;gap:6px;align-items:center}
+
+        .digit-cell{
+          width:32px;min-width:32px;height:32px;min-height:32px;
+          box-sizing:border-box;text-align:center;border-radius:6px;
+          font-family:Courier New,ui-monospace,monospace;font-size:18px;
+          display:flex;align-items:center;justify-content:center;
+          position:relative; flex-direction:column;
+        }
+
+        /* Borrow visual (print version) */
+        .crossed-out{
+          text-decoration:line-through;
+          text-decoration-thickness:2px;
+          text-decoration-color: rgba(239,68,68,0.8);
+          font-size:13px;
+          color: rgba(15,23,42,0.45);
+          line-height:1;
+        }
+        .regrouped-value{ display:flex; align-items:center; justify-content:center; gap:2px; line-height:1; }
+        .borrowed-prefix{ font-size:12px; font-weight:700; color:#0ea5e9; }
+
+        .separator{height:2px;background:linear-gradient(90deg,#22d3ee,transparent);border-radius:2px;margin:4px 0; position:relative;}
+        .separator::before{
+          content:'−';
+          position:absolute;
+          left:-0.55em;
+          top:-0.35em;
+          font-size:1.2em;
+          color:#0ea5e9;
+          font-weight:700;
+        }
+
+        .meta{font-size:12px;color:#64748b}
+        @page{margin:20mm}
+      `;
+
+      function computeDisplayForMinuendDigit(originalDigit, incomingBorrow, givenOutBorrow){
+        const effectiveDigit = originalDigit + (incomingBorrow ? 10 : 0) - (givenOutBorrow ? 1 : 0);
+
+        if(!incomingBorrow && !givenOutBorrow){
+          return `<div class="digit-cell">${originalDigit}</div>`;
+        }
+
+        if(givenOutBorrow){
+          const reducedDigit = originalDigit - 1;
+          if(incomingBorrow){
+            const onesPart = effectiveDigit % 10;
+            return `
+              <div class="digit-cell">
+                <span class="crossed-out">${originalDigit}</span>
+                <div class="regrouped-value"><span class="borrowed-prefix">1</span>${onesPart}</div>
+              </div>
+            `;
+          }
+          return `
+            <div class="digit-cell">
+              <span class="crossed-out">${originalDigit}</span>
+              <div>${reducedDigit}</div>
+            </div>
+          `;
+        }
+
+        const onesPart = effectiveDigit % 10;
+        return `
+          <div class="digit-cell">
+            <div class="regrouped-value"><span class="borrowed-prefix">1</span>${onesPart}</div>
+          </div>
+        `;
+      }
+
+      doc.open();
+      doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Solved Subtraction — PDF</title><style>${style}</style></head><body>`);
+      doc.write(`<h1>Solved subtraction problems</h1>`);
+      doc.write(`<p>Generated: ${new Date().toLocaleString()}</p>`);
+
+      state.solved.forEach((it) => {
+        const d = it.digits;
+        const borrowMarksSaved = Array.isArray(it.finalBorrowMarks) ? it.finalBorrowMarks : (it.lastAttempt?.borrowMarks || new Array(d).fill(false));
+
+        let rowAHTML = `<div class="grid-row">`;
+        let rowBHTML = `<div class="grid-row">`;
+
+        for(let i=0;i<d;i++){
+          const da = Math.floor(it.a/Math.pow(10,i))%10;
+          const db = Math.floor(it.b/Math.pow(10,i))%10;
+
+          const incomingBorrow = !!borrowMarksSaved[i];
+          const givenOutBorrow = (i > 0 && !!borrowMarksSaved[i - 1]);
+
+          rowAHTML += computeDisplayForMinuendDigit(da, incomingBorrow, givenOutBorrow);
+          rowBHTML += `<div class="digit-cell">${db}</div>`;
+        }
+        rowAHTML += `</div>`;
+        rowBHTML += `</div>`;
+
+        // Answer row: student's entered answer only (d digits)
+        const ans = Array.isArray(it.finalUserDigitsRaw) ? it.finalUserDigitsRaw : (it.lastAttempt?.userDigitsRaw || []);
+        let sumHTML = `<div class="grid-row">`;
+        for(let i=0;i<d;i++){
+          const val = (typeof ans[i] !== 'undefined') ? ans[i] : '';
+          sumHTML += `<div class="digit-cell">${val}</div>`;
+        }
+        sumHTML += `</div>`;
+
+        doc.write(`
+          <div class="solv">
+            <div style="flex:1">
+              <div class="vertical-sub">
+                ${rowAHTML}
+                ${rowBHTML}
+                <div class="separator"></div>
+                ${sumHTML}
+                <div class="meta">${it.a} − ${it.b}</div>
+                <div class="meta">Attempts: ${it.attempts ?? 0}</div>
+              </div>
+            </div>
+            <div>
+              <div class="status ${it.correct ? 'correct' : 'wrong'}">${it.correct ? 'Correct' : 'Wrong'}</div>
+              <div class="meta">${it.timestamp ? new Date(it.timestamp).toLocaleString() : ''}</div>
+            </div>
+          </div>
+        `);
       });
 
-      const blob = new Blob([lines.join('\n')], {type:'text/plain'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'subtraction-session.txt';
-      a.click();
-      URL.revokeObjectURL(url);
+      doc.write(`</body></html>`);
+      doc.close();
+
+      setTimeout(() => { printWindow.focus(); printWindow.print(); }, 350);
     }
 
     // Ten-frame builder & helper
@@ -1242,17 +1495,26 @@
       }
     }
 
+    // FIXED: guard against missing elements so helper doesn't silently break
     function buildAllTenFrames(){
-      [tfOnesTop, tfOnesBottom, tfTensTop, tfTensBottom, tfHundredsTop, tfHundredsBottom]
-        .forEach(buildTenFrame);
+      const grids = [tfOnesTop, tfOnesBottom, tfTensTop, tfTensBottom, tfHundredsTop, tfHundredsBottom];
+      grids.forEach(grid => {
+        if(!grid) return;
+        buildTenFrame(grid);
+      });
     }
 
     function clearTenFrames(){
-      [tfOnesTop, tfOnesBottom, tfTensTop, tfTensBottom, tfHundredsTop, tfHundredsBottom]
-        .forEach(grid => {
-          Array.from(grid.children).forEach(c => c.className = 'tenframe-cell');
-        });
-      tenframeSummary.textContent = 'Click any top digit in the problem to see its column here (bright = left over, gray = taken away).';
+      const grids = [tfOnesTop, tfOnesBottom, tfTensTop, tfTensBottom, tfHundredsTop, tfHundredsBottom];
+
+      grids.forEach(grid => {
+        if(!grid) return;
+        Array.from(grid.children).forEach(c => c.className = 'tenframe-cell');
+      });
+
+      if(tenframeSummary){
+        tenframeSummary.textContent = 'Click any top digit in the problem to see its column here (bright = left over, gray = taken away).';
+      }
     }
 
     // Show ten-frame for given place index: 0 = ones, 1 = tens, 2 = hundreds
@@ -1283,6 +1545,8 @@
         bottomGrid = tfHundredsBottom;
         placeName = 'hundreds';
       }
+
+      if(!topGrid || !bottomGrid) return;
 
       // Reset all frames first
       clearTenFrames();
@@ -1336,7 +1600,7 @@
     checkBtn.addEventListener('click', checkAnswer);
     explainBtn.addEventListener('click', showExplanation);
     newLessonBtnTop.addEventListener('click', startNewLesson);
-    downloadBtn.addEventListener('click', downloadPDF);
+    downloadBtn.addEventListener('click', downloadSolvedPDF);
     startTutorialBtn.addEventListener('click', showTutorial);
 
     startChallengeBtn.addEventListener('click', startChallenge);
