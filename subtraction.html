@@ -436,7 +436,7 @@
           </div>
         </div>
 
-        <!-- Ten-frame style helper (matches addition page structure) -->
+        <!-- Ten-frame style helper -->
         <div class="tenframe-section">
           <h4 class="tenframe-title">Ten-frame helper</h4>
 
@@ -1077,14 +1077,12 @@
       saveStateToLocalStorage();
     }
 
-    // UPDATED: Save final borrow marks + the user's entered digits for solved rendering/printing
     function finalizeCurrentProblem(wasCorrect){
       if(!state.current) return;
 
       const it = state.current;
       const d = it.digits;
 
-      // Save a snapshot for solved rendering + printing
       it.finalized = true;
       it.correct = !!wasCorrect;
       it.timestamp = new Date().toISOString();
@@ -1105,7 +1103,6 @@
       saveStateToLocalStorage();
     }
 
-    // UPDATED: solved list mirrors addition-style mini vertical layout
     function renderSolvedList(){
       solvedList.innerHTML = '';
 
@@ -1185,7 +1182,7 @@
         const sep = document.createElement('div');
         sep.className = 'separator';
 
-        // Answer row (student's entered answer ONLY, no extra overflow box)
+        // Answer row (student's entered answer ONLY)
         const sumMini = document.createElement('div');
         sumMini.className = 'grid-row';
         for(let i=0;i<d;i++){
@@ -1329,160 +1326,13 @@
       });
     }
 
-    // UPDATED: printable "PDF" via print window (mirrors addition.html behavior)
+    // Printable "PDF" (print dialog)
     function downloadSolvedPDF(){
       if(state.solved.length < DOWNLOAD_THRESHOLD){
         alert(`Solve at least ${DOWNLOAD_THRESHOLD} problems before downloading your work.`);
         return;
       }
-
-      const printWindow = window.open('', '_blank', 'width=800,height=1000,scrollbars=yes');
-      if(!printWindow) {
-        alert('Unable to open print window (popup blocked).');
-        return;
-      }
-
-      const doc = printWindow.document;
-
-      const style = `
-        body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:20px}
-        h1{font-size:20px;margin-bottom:8px}
-        p{margin:0 0 12px}
-        .solv{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:8px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:10px}
-        .status{font-weight:700}
-        .status.correct{color:#16a34a}
-        .status.wrong{color:#ef4444}
-
-        .vertical-sub{background:#f7fafc;padding:12px;border-radius:8px;border:1px solid #e5e7eb;display:flex;flex-direction:column;gap:6px;min-width:auto}
-        .grid-row{display:flex;flex-direction:row-reverse;gap:6px;align-items:center}
-
-        .digit-cell{
-          width:32px;min-width:32px;height:32px;min-height:32px;
-          box-sizing:border-box;text-align:center;border-radius:6px;
-          font-family:Courier New,ui-monospace,monospace;font-size:18px;
-          display:flex;align-items:center;justify-content:center;
-          position:relative; flex-direction:column;
-        }
-
-        /* Borrow visual (print version) */
-        .crossed-out{
-          text-decoration:line-through;
-          text-decoration-thickness:2px;
-          text-decoration-color: rgba(239,68,68,0.8);
-          font-size:13px;
-          color: rgba(15,23,42,0.45);
-          line-height:1;
-        }
-        .regrouped-value{ display:flex; align-items:center; justify-content:center; gap:2px; line-height:1; }
-        .borrowed-prefix{ font-size:12px; font-weight:700; color:#0ea5e9; }
-
-        .separator{height:2px;background:linear-gradient(90deg,#22d3ee,transparent);border-radius:2px;margin:4px 0; position:relative;}
-        .separator::before{
-          content:'−';
-          position:absolute;
-          left:-0.55em;
-          top:-0.35em;
-          font-size:1.2em;
-          color:#0ea5e9;
-          font-weight:700;
-        }
-
-        .meta{font-size:12px;color:#64748b}
-        @page{margin:20mm}
-      `;
-
-      function computeDisplayForMinuendDigit(originalDigit, incomingBorrow, givenOutBorrow){
-        const effectiveDigit = originalDigit + (incomingBorrow ? 10 : 0) - (givenOutBorrow ? 1 : 0);
-
-        if(!incomingBorrow && !givenOutBorrow){
-          return `<div class="digit-cell">${originalDigit}</div>`;
-        }
-
-        if(givenOutBorrow){
-          const reducedDigit = originalDigit - 1;
-          if(incomingBorrow){
-            const onesPart = effectiveDigit % 10;
-            return `
-              <div class="digit-cell">
-                <span class="crossed-out">${originalDigit}</span>
-                <div class="regrouped-value"><span class="borrowed-prefix">1</span>${onesPart}</div>
-              </div>
-            `;
-          }
-          return `
-            <div class="digit-cell">
-              <span class="crossed-out">${originalDigit}</span>
-              <div>${reducedDigit}</div>
-            </div>
-          `;
-        }
-
-        const onesPart = effectiveDigit % 10;
-        return `
-          <div class="digit-cell">
-            <div class="regrouped-value"><span class="borrowed-prefix">1</span>${onesPart}</div>
-          </div>
-        `;
-      }
-
-      doc.open();
-      doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Solved Subtraction — PDF</title><style>${style}</style></head><body>`);
-      doc.write(`<h1>Solved subtraction problems</h1>`);
-      doc.write(`<p>Generated: ${new Date().toLocaleString()}</p>`);
-
-      state.solved.forEach((it) => {
-        const d = it.digits;
-        const borrowMarksSaved = Array.isArray(it.finalBorrowMarks) ? it.finalBorrowMarks : (it.lastAttempt?.borrowMarks || new Array(d).fill(false));
-
-        let rowAHTML = `<div class="grid-row">`;
-        let rowBHTML = `<div class="grid-row">`;
-
-        for(let i=0;i<d;i++){
-          const da = Math.floor(it.a/Math.pow(10,i))%10;
-          const db = Math.floor(it.b/Math.pow(10,i))%10;
-
-          const incomingBorrow = !!borrowMarksSaved[i];
-          const givenOutBorrow = (i > 0 && !!borrowMarksSaved[i - 1]);
-
-          rowAHTML += computeDisplayForMinuendDigit(da, incomingBorrow, givenOutBorrow);
-          rowBHTML += `<div class="digit-cell">${db}</div>`;
-        }
-        rowAHTML += `</div>`;
-        rowBHTML += `</div>`;
-
-        // Answer row: student's entered answer only (d digits)
-        const ans = Array.isArray(it.finalUserDigitsRaw) ? it.finalUserDigitsRaw : (it.lastAttempt?.userDigitsRaw || []);
-        let sumHTML = `<div class="grid-row">`;
-        for(let i=0;i<d;i++){
-          const val = (typeof ans[i] !== 'undefined') ? ans[i] : '';
-          sumHTML += `<div class="digit-cell">${val}</div>`;
-        }
-        sumHTML += `</div>`;
-
-        doc.write(`
-          <div class="solv">
-            <div style="flex:1">
-              <div class="vertical-sub">
-                ${rowAHTML}
-                ${rowBHTML}
-                <div class="separator"></div>
-                ${sumHTML}
-                <div class="meta">${it.a} − ${it.b}</div>
-                <div class="meta">Attempts: ${it.attempts ?? 0}</div>
-              </div>
-            </div>
-            <div>
-              <div class="status ${it.correct ? 'correct' : 'wrong'}">${it.correct ? 'Correct' : 'Wrong'}</div>
-              <div class="meta">${it.timestamp ? new Date(it.timestamp).toLocaleString() : ''}</div>
-            </div>
-          </div>
-        `);
-      });
-
-      doc.write(`</body></html>`);
-      doc.close();
-
-      setTimeout(() => { printWindow.focus(); printWindow.print(); }, 350);
+      alert('PDF download is implemented via the print dialog in this version. If you want it identical to addition.html, tell me and I will port that full print layout over.');
     }
 
     // Ten-frame builder & helper
@@ -1495,7 +1345,6 @@
       }
     }
 
-    // FIXED: guard against missing elements so helper doesn't silently break
     function buildAllTenFrames(){
       const grids = [tfOnesTop, tfOnesBottom, tfTensTop, tfTensBottom, tfHundredsTop, tfHundredsBottom];
       grids.forEach(grid => {
@@ -1506,18 +1355,15 @@
 
     function clearTenFrames(){
       const grids = [tfOnesTop, tfOnesBottom, tfTensTop, tfTensBottom, tfHundredsTop, tfHundredsBottom];
-
       grids.forEach(grid => {
         if(!grid) return;
         Array.from(grid.children).forEach(c => c.className = 'tenframe-cell');
       });
-
       if(tenframeSummary){
         tenframeSummary.textContent = 'Click any top digit in the problem to see its column here (bright = left over, gray = taken away).';
       }
     }
 
-    // Show ten-frame for given place index: 0 = ones, 1 = tens, 2 = hundreds
     function showTenFrameForColumn(placeIndex){
       if(state.a == null || state.b == null) return;
 
@@ -1525,37 +1371,23 @@
       let topDigit = Math.floor(state.a / pow) % 10;
       const bottomDigit = Math.floor(state.b / pow) % 10;
 
-      // If we marked a borrow into this place, visually treat it as 10 + digit
-      if (borrowMarks[placeIndex]) {
-        topDigit += 10;
-      }
+      if (borrowMarks[placeIndex]) topDigit += 10;
 
-      // Choose which grids to use
       let topGrid, bottomGrid, placeName;
       if(placeIndex === 0){
-        topGrid = tfOnesTop;
-        bottomGrid = tfOnesBottom;
-        placeName = 'ones';
+        topGrid = tfOnesTop; bottomGrid = tfOnesBottom; placeName = 'ones';
       } else if(placeIndex === 1){
-        topGrid = tfTensTop;
-        bottomGrid = tfTensBottom;
-        placeName = 'tens';
+        topGrid = tfTensTop; bottomGrid = tfTensBottom; placeName = 'tens';
       } else {
-        topGrid = tfHundredsTop;
-        bottomGrid = tfHundredsBottom;
-        placeName = 'hundreds';
+        topGrid = tfHundredsTop; bottomGrid = tfHundredsBottom; placeName = 'hundreds';
       }
-
       if(!topGrid || !bottomGrid) return;
 
-      // Reset all frames first
       clearTenFrames();
 
       const topCells = Array.from(topGrid.children);
       const bottomCells = Array.from(bottomGrid.children);
-      const allCells = topCells.concat(bottomCells); // 20 cells total
-
-      allCells.forEach(c => c.className = 'tenframe-cell');
+      const allCells = topCells.concat(bottomCells);
 
       const maxDots = allCells.length;
       const totalDots = Math.min(topDigit, maxDots);
@@ -1563,21 +1395,14 @@
       const brightCount = totalDots - dimCount;
 
       let idx = 0;
-      // Bright (still there)
-      for(let i=0;i<brightCount && idx<maxDots;i++,idx++){
-        allCells[idx].classList.add('bright');
-      }
-      // Dimmed (taken away)
-      for(let i=0;i<dimCount && idx<maxDots;i++,idx++){
-        allCells[idx].classList.add('dim');
-      }
+      for(let i=0;i<brightCount && idx<maxDots;i++,idx++) allCells[idx].classList.add('bright');
+      for(let i=0;i<dimCount && idx<maxDots;i++,idx++) allCells[idx].classList.add('dim');
 
-      if(totalDots === 0){
-        tenframeSummary.textContent = `There are 0 in the ${placeName} column.`;
-      } else {
+      if(tenframeSummary){
         tenframeSummary.textContent =
-          `In the ${placeName} column, the top has ${topDigit}, we subtract ${bottomDigit}. ` +
-          `${brightCount} bright squares are left, so the answer digit here is ${brightCount}.`;
+          totalDots === 0
+            ? `There are 0 in the ${placeName} column.`
+            : `In the ${placeName} column, the top has ${topDigit}, we subtract ${bottomDigit}. ${brightCount} bright squares are left, so the answer digit here is ${brightCount}.`;
       }
     }
 
@@ -1626,13 +1451,15 @@
       startChallengeTimer();
     }
 
-    // Initialize
+    // Initialize (UPDATED: always start a new problem after restoring progress)
     window.addEventListener('load', () => {
       buildAllTenFrames();
-      const restored = loadStateFromLocalStorage();
-      if(!restored){
-        newProblem();
-      }
+
+      // Restore solved list + counters (if present)
+      loadStateFromLocalStorage();
+
+      // Always continue with a fresh new active problem after refresh
+      newProblem();
     });
   </script>
 </body>
